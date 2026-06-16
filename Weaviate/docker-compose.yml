@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  weaviate:
+    image: semitechnologies/weaviate:latest
+    container_name: weaviate
+    ports:
+      - "8080:8080"
+    environment:
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+      DEFAULT_VECTORIZER_MODULE: "none"
+      ENABLE_MODULES: ""
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+
+  app:
+    build: .
+    container_name: app
+    depends_on:
+      - ollama
+      - weaviate
+    volumes:
+      - ./dataset:/dataset
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - WEAVIATE_HOST=http://weaviate:8080
+
+volumes:
+  ollama_data:
+  weaviate_data:

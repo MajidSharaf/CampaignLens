@@ -1,0 +1,4 @@
+dspy-ai
+langchain-ollama
+pandas
+weaviate-client

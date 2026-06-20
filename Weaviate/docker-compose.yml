@@ -22,6 +22,40 @@ services:
       ENABLE_MODULES: ""
     volumes:
       - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5
+    container_name: neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mlflow:
+    image: python:3.11-slim
+    container_name: mlflow
+    command: >
+      bash -c "pip install mlflow --quiet && mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:///mlflow.db
+      --default-artifact-root /mlflow/artifacts"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
 
   app:
     build: .
@@ -31,10 +65,35 @@ services:
       - weaviate
     volumes:
       - ./dataset:/dataset
+      - shared_data:/app/data
     environment:
       - OLLAMA_HOST=http://ollama:11434
       - WEAVIATE_HOST=http://weaviate:8080
+    env_file:
+      - .env
+
+  chatbot:
+    build:
+      context: ../Chatbot
+      dockerfile: Dockerfile
+    container_name: chatbot
+    ports:
+      - "8000:8000"
+    depends_on:
+      weaviate:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      neo4j:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - shared_data:/app/data
 
 volumes:
   ollama_data:
   weaviate_data:
+  neo4j_data:
+  mlflow_data:
+  shared_data:

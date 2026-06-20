@@ -7,8 +7,10 @@ until curl -s http://ollama:11434 > /dev/null; do
 done
 echo "Ollama ready"
 
-# Pull model
-ollama pull embeddinggemma
+# Pull model into the Ollama service (REST API, not local CLI)
+echo "Pulling embeddinggemma model..."
+curl -s -X POST http://ollama:11434/api/pull -d '{"name":"embeddinggemma"}' | tail -1
+echo "Model pull complete"
 
 # Wait for Weaviate
 echo "Waiting for Weaviate..."

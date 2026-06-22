@@ -1,0 +1,30 @@
+# CampaignLens Pipeline - requirements.txt
+# Covers: 0_scraper.py, 1_preprocessing.py, 2_analysis.py,
+#         Weaviate/embedding.py, Weaviate/vectorize.py
+#
+# Install with: pip install -r requirements.txt
+# After installing, also run: python -m spacy download en_core_web_sm
+
+# ---------- Stage 0: scraper ----------
+google-api-python-client
+python-dotenv
+
+# ---------- Stage 1: preprocessing ----------
+pandas
+autocorrect
+
+# ---------- Stage 2: analysis (sentiment, NER, topic modeling) ----------
+numpy
+tqdm
+spacy
+transformers
+torch
+scikit-learn
+
+# ---------- Stage 3: embedding + vectorize (Weaviate) ----------
+dspy-ai
+langchain-ollama
+weaviate-client>=4.0.0
+
+# ---------- shared / used across stages ----------
+# (pandas, python-dotenv already listed above, no duplicates needed)

@@ -6,7 +6,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ./ollama_models:/root/.ollama
+      - ollama_models:/root/.ollama
     logging:
       driver: "none"
 
@@ -44,7 +44,8 @@ services:
       test: ["CMD", "wget", "-qO-", "http://localhost:7474"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 20
+      start_period: 120s
 
   mlflow:
     image: python:3.11-slim
@@ -109,3 +110,4 @@ volumes:
   neo4j_data:
   mlflow_data:
   shared_data:
+  ollama_models:

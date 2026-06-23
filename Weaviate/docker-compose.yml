@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
 
   ollama:
@@ -8,18 +6,22 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - ./ollama_models:/root/.ollama
+    logging:
+      driver: "none"
 
   weaviate:
-    image: semitechnologies/weaviate:latest
+    image: semitechnologies/weaviate:1.28.4
     container_name: weaviate
     ports:
       - "8080:8080"
+      - "50051:50051"
     environment:
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
       PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
       DEFAULT_VECTORIZER_MODULE: "none"
       ENABLE_MODULES: ""
+      CLUSTER_HOSTNAME: "node1"
     volumes:
       - weaviate_data:/var/lib/weaviate
     healthcheck:
@@ -48,12 +50,12 @@ services:
     image: python:3.11-slim
     container_name: mlflow
     command: >
-      bash -c "pip install mlflow --quiet && mlflow server
-      --host 0.0.0.0 --port 5000
+      bash -c "pip install 'mlflow==2.13.2' --quiet && mlflow server
+      --host 0.0.0.0 --port 5001
       --backend-store-uri sqlite:///mlflow.db
       --default-artifact-root /mlflow/artifacts"
     ports:
-      - "5000:5000"
+      - "5001:5001"
     volumes:
       - mlflow_data:/mlflow
 
@@ -61,20 +63,23 @@ services:
     build: .
     container_name: app
     depends_on:
-      - ollama
-      - weaviate
+      weaviate:
+        condition: service_healthy
+      ollama:
+        condition: service_started
     volumes:
       - ./dataset:/dataset
       - shared_data:/app/data
     environment:
       - OLLAMA_HOST=http://ollama:11434
-      - WEAVIATE_HOST=http://weaviate:8080
+      - WEAVIATE_HOST=weaviate
+      - WEAVIATE_PORT=8080
     env_file:
       - .env
 
   chatbot:
     build:
-      context: ../Chatbot
+      context: ../Frontend
       dockerfile: Dockerfile
     container_name: chatbot
     ports:
@@ -86,13 +91,20 @@ services:
         condition: service_started
       neo4j:
         condition: service_healthy
+      mlflow:
+        condition: service_started
     env_file:
       - .env
+    environment:
+      - PIPELINE_DATA_PATH=/app/pipeline_data
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
     volumes:
       - shared_data:/app/data
+      - ../Pipeline:/app/pipeline_data
+      - ./dataset:/dataset
+      - .:/app/weaviate_app:ro
 
 volumes:
-  ollama_data:
   weaviate_data:
   neo4j_data:
   mlflow_data:

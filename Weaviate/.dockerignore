@@ -1,0 +1,5 @@
+ollama_models/
+dataset/
+__pycache__/
+*.pyc
+.env

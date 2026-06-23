@@ -1,7 +1,7 @@
+import os
 import warnings
 import pandas as pd
 import dspy
-from langchain_ollama import OllamaEmbeddings
 
 warnings.filterwarnings('ignore')
 
@@ -21,7 +21,8 @@ Comments_Negative = Processed_Comments[Processed_Comments['sentiment_label'] == 
 # Embedder
 # ---------------------------------------------------------------------------
 
-embedder_dspy = dspy.Embedder("ollama/embeddinggemma")
+ollama_host = os.getenv("OLLAMA_HOST", "http://ollama:11434")
+embedder_dspy = dspy.Embedder("ollama/embeddinggemma", api_base=ollama_host)
 
 def getEmbedding(text):
     return embedder_dspy(text)

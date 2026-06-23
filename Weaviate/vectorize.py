@@ -12,10 +12,9 @@ warnings.filterwarnings('ignore')
 # Connect to Weaviate
 # ---------------------------------------------------------------------------
 
-client = weaviate.connect_to_custom(
-    http_host=os.getenv("WEAVIATE_HOST", "localhost"),
-    http_port=8080,
-    grpc_host=os.getenv("WEAVIATE_HOST", "localhost"),
+client = weaviate.connect_to_local(
+    host=os.getenv("WEAVIATE_HOST", "weaviate"),
+    port=8080,
     grpc_port=50051,
 )
 
@@ -149,7 +148,7 @@ loadDataIntoCollection(Comments_Negative, "NegativeComments")
 # Sanity check
 # ---------------------------------------------------------------------------
 
-embeddings = OllamaEmbeddings(model="embeddinggemma")
+embeddings = OllamaEmbeddings(model="embeddinggemma", base_url=os.getenv("OLLAMA_HOST", "http://ollama:11434"))
 test_vector = embeddings.embed_query("this product is amazing")
 collection = client.collections.use("PositiveComments")
 results = semanticRetrieval(collection, test_vector)

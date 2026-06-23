@@ -22,7 +22,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 
 mlflow.set_experiment("CampaignLens_Router")
-mlflow.langchain.autolog()
+mlflow.dspy.autolog()
 
 # ---------------------------------------------------------------------------
 # LLM for classification only

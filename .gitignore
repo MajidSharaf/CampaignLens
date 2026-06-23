@@ -1,3 +1,42 @@
 .DS_Store
 **/.DS_Store
-.DS_Store
+
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Environment
+.env
+*.env
+
+# Hugging Face model cache (REBEL, RoBERTa, etc.)
+# Download once locally — never commit multi-GB model weights
+~/.cache/huggingface/
+.cache/
+**/.cache/huggingface/
+
+# Jupyter
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Data files (large CSVs, parquet, pkl — tracked in Datasets/ separately)
+*.parquet
+*.pkl
+Pipeline/*.csv
+Pipeline_Legacy/
+
+# MLflow artifacts
+mlflow.db
+mlruns/
+mlflow/
+
+# Docker
+*.log
+
+# Ollama model cache (downloaded at runtime, can be large)
+Weaviate/ollama_models/

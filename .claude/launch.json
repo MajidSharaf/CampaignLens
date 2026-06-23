@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "CampaignLens Frontend",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5500"],
+      "port": 5500,
+      "cwd": "/Users/mayood/Documents/Study/Uni/Y3/S3/CSCI370/Project/CampaignLens/Frontend/static"
+    }
+  ]
+}

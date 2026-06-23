@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CampaignLens — Docker Setup</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1A4494;
+  --red:#B01C2E;
+  --text:#0A0F1E;
+  --muted:#6B7280;
+  --border:#D4D8E1;
+  --bg:#FFFFFF;
+  --surface:#F7F8FA;
+  --code-bg:#0D1117;
+  --code-text:#C9D1D9;
+  --green:#16A34A;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6}
+
+nav{display:flex;align-items:center;gap:1rem;padding:0 2.5rem;height:56px;border-bottom:1px solid var(--border)}
+.wordmark{font-size:14px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text);text-decoration:none}
+.wordmark span{color:var(--blue)}
+.back{margin-left:auto;height:30px;padding:0 0.75rem;border:1px solid var(--border);background:none;color:var(--muted);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none;transition:color .15s,border-color .15s}
+.back:hover{color:var(--text);border-color:var(--text)}
+
+.page{max-width:860px;margin:0 auto;padding:3.5rem 2.5rem 5rem}
+
+.page-eyebrow{font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem}
+.page-title{font-size:2rem;font-weight:700;letter-spacing:-0.02em;margin-bottom:0.75rem}
+.page-body{font-size:15px;color:var(--muted);line-height:1.7;max-width:60ch;margin-bottom:3rem}
+
+.services{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:3rem}
+.service{background:var(--bg);padding:1rem 1.25rem}
+.service-name{font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.25rem}
+.service-name.blue{color:var(--blue)}
+.service-name.red{color:var(--red)}
+.service-name.green{color:var(--green)}
+.service-port{font-size:12px;font-family:"SF Mono","Fira Code",monospace;color:var(--muted)}
+.service-desc{font-size:12px;color:var(--muted);margin-top:0.25rem}
+
+.steps{display:flex;flex-direction:column;gap:2.5rem}
+.step{display:grid;grid-template-columns:48px 1fr;gap:1.5rem;align-items:start}
+.step-num{width:36px;height:36px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--muted);flex-shrink:0}
+.step.active .step-num{border-color:var(--blue);color:var(--blue)}
+.step-content{}
+.step-title{font-size:15px;font-weight:600;margin-bottom:0.3rem}
+.step-desc{font-size:13px;color:var(--muted);margin-bottom:0.875rem;line-height:1.6}
+
+.code-block{background:var(--code-bg);border:1px solid #30363D;overflow:hidden}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid #30363D}
+.code-filename{font-size:11px;color:#8B949E;font-family:"SF Mono","Fira Code",monospace}
+.copy-btn{background:none;border:1px solid #30363D;color:#8B949E;font-size:11px;cursor:pointer;padding:3px 10px;display:flex;align-items:center;gap:5px;transition:color .15s,border-color .15s}
+.copy-btn:hover{color:#C9D1D9;border-color:#6B7280}
+.copy-btn.copied{color:var(--green);border-color:var(--green)}
+pre{padding:1rem 1.25rem;overflow-x:auto;font-family:"SF Mono","Fira Code","Cascadia Code",monospace;font-size:12.5px;line-height:1.7;color:var(--code-text)}
+pre .c{color:#6E7681}
+pre .s{color:#A5D6FF}
+pre .k{color:#FF7B72}
+pre .v{color:#79C0FF}
+
+.note{display:flex;gap:0.75rem;padding:1rem 1.25rem;background:var(--surface);border-left:3px solid var(--blue);margin-top:0.875rem;font-size:13px;line-height:1.6;color:var(--muted)}
+.note i{color:var(--blue);flex-shrink:0;margin-top:1px}
+
+.divider{border:none;border-top:1px solid var(--border);margin:3rem 0}
+
+.check-list{display:flex;flex-direction:column;gap:0.75rem}
+.check-item{display:flex;align-items:flex-start;gap:0.75rem;font-size:14px}
+.check-item i{color:var(--green);flex-shrink:0;margin-top:2px}
+.check-item span{color:var(--muted)}
+.check-item strong{color:var(--text)}
+
+.open-btn{display:inline-flex;align-items:center;gap:8px;margin-top:2rem;height:44px;padding:0 1.5rem;background:var(--blue);color:#fff;font-size:13px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;text-decoration:none;border:none;cursor:pointer;transition:background .15s}
+.open-btn:hover{background:#143577}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="wordmark" href="/">Campaign<span>Lens</span></a>
+  <a class="back" href="/"><i class="ti ti-arrow-left" aria-hidden="true"></i> Back to tool</a>
+</nav>
+
+<div class="page">
+  <div class="page-eyebrow">Local deployment</div>
+  <h1 class="page-title">Docker setup</h1>
+  <p class="page-body">CampaignLens runs as six Docker services. No cloud account needed — everything stays on your machine. Follow the steps below to bring the stack up.</p>
+
+  <div class="services">
+    <div class="service">
+      <div class="service-name blue">Weaviate</div>
+      <div class="service-port">:8080</div>
+      <div class="service-desc">Vector database storing embedded comments</div>
+    </div>
+    <div class="service">
+      <div class="service-name blue">Ollama</div>
+      <div class="service-port">:11434</div>
+      <div class="service-desc">Local LLM runtime — serves qwen2.5 and embeddinggemma</div>
+    </div>
+    <div class="service">
+      <div class="service-name">Neo4j</div>
+      <div class="service-port">:7474 / :7687</div>
+      <div class="service-desc">Knowledge graph for entity relationship queries</div>
+    </div>
+    <div class="service">
+      <div class="service-name">MLflow</div>
+      <div class="service-port">:5001</div>
+      <div class="service-desc">Experiment tracking for router and chatbot runs</div>
+    </div>
+    <div class="service">
+      <div class="service-name">App</div>
+      <div class="service-port">internal</div>
+      <div class="service-desc">Embedding pipeline — loads comments into Weaviate</div>
+    </div>
+    <div class="service">
+      <div class="service-name green">Chatbot</div>
+      <div class="service-port">:8000</div>
+      <div class="service-desc">FastAPI server — this interface</div>
+    </div>
+  </div>
+
+  <div class="steps">
+
+    <div class="step active">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Prerequisites</div>
+        <p class="step-desc">Make sure Docker Desktop is running and you have Git installed.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename">terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)"><i class="ti ti-copy" aria-hidden="true"></i> Copy</button>
+          </div>
+          <pre>docker --version
+git --version</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Clone the repository</div>
+        <p class="step-desc">Clone CampaignLens and move into the project directory.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename">terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)"><i class="ti ti-copy" aria-hidden="true"></i> Copy</button>
+          </div>
+          <pre>git clone https://github.com/your-org/CampaignLens.git
+cd CampaignLens</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Create the environment file</div>
+        <p class="step-desc">Create a <code>.env</code> file inside <code>Weaviate/</code> with the values below. Set a Neo4j password of your choice.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename">Weaviate/.env</span>
+            <button class="copy-btn" onclick="copyCode(this)"><i class="ti ti-copy" aria-hidden="true"></i> Copy</button>
+          </div>
+          <pre><span class="c"># Weaviate</span>
+<span class="v">WEAVIATE_HOST</span>=weaviate
+<span class="v">WEAVIATE_PORT</span>=<span class="s">8080</span>
+
+<span class="c"># Ollama</span>
+<span class="v">OLLAMA_URL</span>=http://ollama:11434
+<span class="v">OLLAMA_MODEL</span>=<span class="s">qwen2.5:0.5b</span>
+<span class="v">OLLAMA_EMBED_MODEL</span>=<span class="s">embeddinggemma</span>
+
+<span class="c"># Neo4j</span>
+<span class="v">NEO4J_URI</span>=bolt://neo4j:7687
+<span class="v">NEO4J_USER</span>=<span class="s">neo4j</span>
+<span class="v">NEO4J_PASSWORD</span>=<span class="s">your-password-here</span>
+
+<span class="c"># YouTube API (rotate if previously exposed)</span>
+<span class="v">YOUTUBE_API_KEY</span>=<span class="s">your-api-key-here</span></pre>
+        </div>
+        <div class="note">
+          <i class="ti ti-alert-circle" aria-hidden="true"></i>
+          <span>Do not commit <code>.env</code> to git. It is already listed in <code>.gitignore</code>.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <div class="step-title">Pull the Ollama models</div>
+        <p class="step-desc">After Ollama starts, pull both models the pipeline needs. The embedding model is pulled automatically by the app container, but you can pre-fetch here.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename">terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)"><i class="ti ti-copy" aria-hidden="true"></i> Copy</button>
+          </div>
+          <pre><span class="c"># Run this after step 5 once ollama is up</span>
+docker exec ollama ollama pull qwen2.5:0.5b
+docker exec ollama ollama pull embeddinggemma</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <div class="step-title">Build and start the stack</div>
+        <p class="step-desc">Run this from the <code>Weaviate/</code> directory. Docker will build both the app and chatbot images, then start all six services in the correct order.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename">terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)"><i class="ti ti-copy" aria-hidden="true"></i> Copy</button>
+          </div>
+          <pre>cd Weaviate
+docker-compose up --build</pre>
+        </div>
+        <div class="note">
+          <i class="ti ti-info-circle" aria-hidden="true"></i>
+          <span>First build takes 5–10 minutes. Subsequent starts are fast. The chatbot service waits for Weaviate and Neo4j to pass their health checks before starting.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-content">
+        <div class="step-title">Load mock data (optional, for testing)</div>
+        <p class="step-desc">If the pipeline hasn't run yet, insert sample comments into Weaviate so the chatbots have something to retrieve from.</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename">terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)"><i class="ti ti-copy" aria-hidden="true"></i> Copy</button>
+          </div>
+          <pre>docker exec chatbot python mock_insert.py</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <hr class="divider"/>
+
+  <div class="page-eyebrow" style="margin-bottom:1.25rem">Services at a glance</div>
+  <div class="check-list">
+    <div class="check-item">
+      <i class="ti ti-circle-check" aria-hidden="true"></i>
+      <span><strong>http://localhost:8000</strong> — CampaignLens chatbot interface (this page)</span>
+    </div>
+    <div class="check-item">
+      <i class="ti ti-circle-check" aria-hidden="true"></i>
+      <span><strong>http://localhost:8000/docs</strong> — FastAPI auto-generated API documentation</span>
+    </div>
+    <div class="check-item">
+      <i class="ti ti-circle-check" aria-hidden="true"></i>
+      <span><strong>http://localhost:5001</strong> — MLflow experiment tracking dashboard</span>
+    </div>
+    <div class="check-item">
+      <i class="ti ti-circle-check" aria-hidden="true"></i>
+      <span><strong>http://localhost:7474</strong> — Neo4j browser (username: neo4j)</span>
+    </div>
+    <div class="check-item">
+      <i class="ti ti-circle-check" aria-hidden="true"></i>
+      <span><strong>http://localhost:8080</strong> — Weaviate REST API</span>
+    </div>
+  </div>
+
+  <a class="open-btn" href="/">
+    Open CampaignLens
+    <i class="ti ti-arrow-right" aria-hidden="true"></i>
+  </a>
+</div>
+
+<script>
+function copyCode(btn){
+  const pre=btn.closest('.code-block').querySelector('pre');
+  const text=pre.innerText;
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.classList.add('copied');
+    btn.innerHTML='<i class="ti ti-check" aria-hidden="true"></i> Copied';
+    setTimeout(()=>{
+      btn.classList.remove('copied');
+      btn.innerHTML='<i class="ti ti-copy" aria-hidden="true"></i> Copy';
+    },2000);
+  });
+}
+</script>
+</body>
+</html>

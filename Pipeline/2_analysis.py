@@ -1,22 +1,25 @@
 """
 Stage 2 - Analysis
-Reads processed_comments.csv and runs sentiment classification, NER, and
-topic modeling on each comment. All results are joined on comment_id into
-one output file.
+Reads processed_comments.csv and runs sentiment classification, NER,
+keyword extraction, and topic modeling on each comment. All results are
+joined on comment_id into one output file.
 
-Sentiment: RoBERTa only (cardiffnlp/twitter-roberta-base-sentiment), no VADER,
-no fallback - team decision, this deviates from the original handover spec
-which described a confidence-based VADER fallback.
+Sentiment: RoBERTa only (cardiffnlp/twitter-roberta-base-sentiment), no VADER.
 
 Topic modeling: LDA run separately on Pro comments and Anti comments, so we
 get "what supporters talk about" vs "what critics talk about" rather than
 one combined model.
+
+Keyword extraction: TF-IDF per document (Lab 3 approach) — fit a
+TfidfVectorizer on the full corpus, then for each comment extract the top-5
+terms by their TF-IDF score. No extra library needed beyond sklearn.
 
 Input:  processed_comments.csv
 Output: analysis_results.csv
 """
 
 import json
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -25,7 +28,7 @@ from tqdm import tqdm
 import spacy
 from transformers import pipeline
 
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 
 tqdm.pandas()
@@ -73,13 +76,35 @@ def getEntities(text, nlp):
     return json.dumps(entities)
 
 
+# ---------- keyword extraction (TF-IDF, Lab 3 approach) ----------
+
+def buildTfidfKeywords(texts, top_n=5):
+    """
+    Fit a TfidfVectorizer on the full corpus (same pattern as Lab 3).
+    For each document, return the top_n terms by TF-IDF score as a JSON list.
+    Returns a list of JSON strings, one per document.
+    """
+    tfidf = TfidfVectorizer(max_features=5000, ngram_range=(1, 2), min_df=2)
+    matrix = tfidf.fit_transform(texts)
+    feature_names = np.array(tfidf.get_feature_names_out())
+
+    results = []
+    for i in range(matrix.shape[0]):
+        row = np.asarray(matrix[i].todense()).flatten()
+        top_indices = row.argsort()[::-1][:top_n]
+        keywords = [feature_names[j] for j in top_indices if row[j] > 0]
+        results.append(json.dumps(keywords))
+    return results
+
+
 # ---------- topic modeling (LDA, per sentiment split) ----------
 
 def runLda(comments, n_topics=10):
     """
     Fits LDA on a list/Series of comments. Returns:
-    - a dict mapping comment index (within this subset) -> (topic_id, top_keywords)
-    - the fitted lda + vectorizer (for saving as .pkl, dashboard needs them later)
+    - topic_assignments: array of topic ids per comment
+    - topic_keywords: dict of topic_id -> comma-separated top words
+    - lda, vect: fitted models (saved as .pkl for the dashboard)
     """
     if len(comments) < n_topics:
         n_topics = max(2, len(comments) // 2) if len(comments) > 1 else 1
@@ -127,6 +152,10 @@ def runAnalysis(input_path="processed_comments.csv", output_path="analysis_resul
     nlp = loadNerModel()
     df["entities"] = df["cleaned_text"].progress_apply(lambda t: getEntities(t, nlp))
 
+    # ---------- keyword extraction ----------
+    print("\nRunning keyword extraction (TF-IDF)...")
+    df["keywords"] = buildTfidfKeywords(df["cleaned_text"].tolist())
+
     # ---------- topic modeling, split by sentiment ----------
     print("\nRunning topic modeling (LDA, Pro vs Anti)...")
 
@@ -141,7 +170,6 @@ def runAnalysis(input_path="processed_comments.csv", output_path="analysis_resul
         df.loc[pro_mask, "topic_id"] = pro_assignments
         df.loc[pro_mask, "topic_keywords"] = [pro_keywords[t] for t in pro_assignments]
 
-        import pickle
         with open(lda_pro_path, "wb") as f:
             pickle.dump({"model": lda_pro, "vectorizer": vect_pro, "keywords": pro_keywords}, f)
         print(f"  Pro topics saved to {lda_pro_path}")
@@ -151,7 +179,6 @@ def runAnalysis(input_path="processed_comments.csv", output_path="analysis_resul
         df.loc[anti_mask, "topic_id"] = anti_assignments
         df.loc[anti_mask, "topic_keywords"] = [anti_keywords[t] for t in anti_assignments]
 
-        import pickle
         with open(lda_anti_path, "wb") as f:
             pickle.dump({"model": lda_anti, "vectorizer": vect_anti, "keywords": anti_keywords}, f)
         print(f"  Anti topics saved to {lda_anti_path}")
@@ -159,11 +186,11 @@ def runAnalysis(input_path="processed_comments.csv", output_path="analysis_resul
     # Neutral comments are left with topic_id = -1 / no keywords, per spec
     # (spec only requires Pro vs Anti topic modeling)
 
-    # ---------- final column order per spec ----------
+    # ---------- final column order ----------
     final_cols = [
         "comment_id", "video_id", "author", "updated_at", "like_count", "cleaned_text",
         "roberta_label", "roberta_confidence", "sentiment_label",
-        "entities", "topic_id", "topic_keywords",
+        "entities", "keywords", "topic_id", "topic_keywords",
     ]
     df = df[final_cols]
 
@@ -173,4 +200,9 @@ def runAnalysis(input_path="processed_comments.csv", output_path="analysis_resul
 
 
 if __name__ == "__main__":
-    runAnalysis()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", default="processed_comments.csv")
+    parser.add_argument("--output", default="analysis_results.csv")
+    a = parser.parse_args()
+    runAnalysis(input_path=a.input, output_path=a.output)

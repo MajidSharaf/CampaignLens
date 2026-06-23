@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CampaignLens — Setting up</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1849A9;
+  --blue-lt:rgba(24,73,169,.08);
+  --red:#B91C1C;
+  --green:#15803D;
+  --text:#0C111D;
+  --sub:#4B5563;
+  --muted:#9CA3AF;
+  --border:#E5E7EB;
+  --bg:#FFFFFF;
+  --surface:#F9FAFB;
+}
+html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Segoe UI",sans-serif;color:var(--text);display:flex;align-items:center;justify-content:center}
+
+.card{width:560px;padding:52px 44px;text-align:center}
+
+.wordmark{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:48px;opacity:.4}
+.wordmark span{color:var(--blue)}
+
+/* status icon */
+.icon-wrap{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;background:var(--blue-lt);transition:background .4s}
+.icon-wrap svg{width:26px;height:26px}
+
+.title{font-size:21px;font-weight:700;letter-spacing:-.025em;margin-bottom:6px;transition:color .3s}
+.subtitle{font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:48px;min-height:2.8em;transition:opacity .3s}
+
+/* ── Step rail ── */
+.rail{display:flex;align-items:flex-start;justify-content:center;gap:0;margin-bottom:40px}
+
+.step{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;max-width:100px}
+.step-dot{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--muted);transition:all .35s;position:relative;z-index:1;cursor:default}
+.step.done .step-dot{border-color:var(--blue);background:var(--blue);color:#fff}
+.step.active .step-dot{border-color:var(--blue);background:var(--bg);color:var(--blue);box-shadow:0 0 0 5px rgba(24,73,169,.1)}
+.step.active .step-dot::after{content:'';position:absolute;inset:-7px;border-radius:50%;border:2px solid rgba(24,73,169,.2);animation:pulse 1.5s ease-out infinite}
+.step.error .step-dot{border-color:var(--red);background:var(--red);color:#fff}
+.step-label{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.02em;text-align:center;line-height:1.3}
+.step.done .step-label,.step.active .step-label{color:var(--text);font-weight:600}
+.step.error .step-label{color:var(--red)}
+
+.connector{flex:1;height:2px;background:var(--border);margin-top:16px;transition:background .35s;min-width:12px}
+.connector.done{background:var(--blue)}
+
+/* ── current stage label ── */
+.stage-badge{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);background:var(--surface);border:1px solid var(--border);padding:7px 16px;border-radius:20px;margin-bottom:28px;min-height:34px}
+.spin{width:14px;height:14px;border:2px solid rgba(24,73,169,.2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+
+/* ── error ── */
+.err-box{background:#FEF2F2;border:1px solid rgba(185,28,28,.15);border-left:3px solid var(--red);padding:12px 16px;text-align:left;font-size:12px;color:var(--red);line-height:1.65;margin:0 auto 20px;border-radius:2px;display:none;max-width:420px;word-break:break-word}
+.err-box.show{display:block}
+
+/* ── buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 24px;font-size:13px;font-weight:600;border-radius:5px;cursor:pointer;border:none;transition:opacity .15s;text-decoration:none}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{opacity:.87}
+.btn-outline{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-outline:hover{border-color:var(--text)}
+.btns{display:flex;gap:10px;justify-content:center;display:none}
+
+/* ── eta note ── */
+.eta{font-size:11px;color:var(--muted);margin-top:-16px;margin-bottom:28px}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%{opacity:.6;transform:scale(1)}100%{opacity:0;transform:scale(1.9)}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="wordmark">Campaign<span>Lens</span></div>
+
+  <div class="icon-wrap" id="iconWrap">
+    <svg id="iconSvg" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+    </svg>
+  </div>
+
+  <div class="title" id="title">Setting everything up…</div>
+  <div class="subtitle" id="subtitle">Running the full pipeline. This takes a few minutes — stay on this page.</div>
+
+  <div class="rail" id="rail"></div>
+
+  <div class="stage-badge" id="stageBadge">
+    <div class="spin" id="badgeSpin"></div>
+    <span id="badgeText">Starting…</span>
+  </div>
+  <div class="eta" id="eta">Embedding takes the longest — usually 2–4 min</div>
+
+  <div class="err-box" id="errBox"></div>
+  <div class="btns" id="btns"></div>
+</div>
+
+<script>
+const STAGES = ['scraping','preprocessing','analyzing','embedding','vectorizing'];
+const LABELS = ['Scraping','Preprocessing','Analyzing','Embedding','Weaviate'];
+const DESCS = {
+  scraping:     'Fetching YouTube comments via the Data API…',
+  preprocessing:'Cleaning, tokenising, and deduplicating comments…',
+  analyzing:    'Running RoBERTa sentiment, NER & LDA topic modeling…',
+  embedding:    'Generating vector embeddings via Ollama (this is the slow one)…',
+  vectorizing:  'Loading embeddings into Weaviate…',
+  done:         'All done!',
+};
+
+function buildRail(activeStage, status){
+  const ai = STAGES.indexOf(activeStage);
+  return STAGES.map((s, i) => {
+    let cls = 'step';
+    let icon = i + 1;
+    if (status === 'complete') { cls += ' done'; icon = '✓'; }
+    else if (status === 'error' && i === ai) { cls += ' error'; icon = '✗'; }
+    else if (i < ai) { cls += ' done'; icon = '✓'; }
+    else if (i === ai && status === 'running') { cls += ' active'; }
+    const conn = i < STAGES.length - 1
+      ? `<div class="connector${(status==='complete'||i<ai)?' done':''}"></div>`
+      : '';
+    return `<div class="${cls}">
+      <div class="step-dot">${icon}</div>
+      <div class="step-label">${LABELS[i]}</div>
+    </div>${conn}`;
+  }).join('');
+}
+
+let _done = false;
+
+async function poll(){
+  if (_done) return;
+  try {
+    const r = await fetch('/api/pipeline/status');
+    const p = await r.json();
+    const {status, stage, error} = p;
+
+    document.getElementById('rail').innerHTML = buildRail(stage, status);
+
+    if (status === 'running') {
+      document.getElementById('badgeSpin').style.display = '';
+      document.getElementById('badgeText').textContent = DESCS[stage] || 'Running…';
+      document.getElementById('eta').style.display = (stage === 'embedding') ? '' : 'none';
+
+    } else if (status === 'complete') {
+      _done = true;
+
+      // Green check
+      document.getElementById('iconWrap').style.background = 'rgba(21,128,61,.1)';
+      document.getElementById('iconSvg').setAttribute('stroke','var(--green)');
+      document.getElementById('iconSvg').innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+      document.getElementById('title').textContent = 'Ready!';
+      document.getElementById('subtitle').textContent = 'Pipeline complete. Weaviate is loaded. Taking you to the dashboard…';
+      document.getElementById('stageBadge').style.display = 'none';
+      document.getElementById('eta').style.display = 'none';
+
+      setTimeout(() => location.href = '/dashboard', 1600);
+      return;
+
+    } else if (status === 'error') {
+      _done = true;
+
+      document.getElementById('iconWrap').style.background = 'rgba(185,28,28,.08)';
+      document.getElementById('iconSvg').setAttribute('stroke','var(--red)');
+      document.getElementById('iconSvg').innerHTML = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+      document.getElementById('title').textContent = 'Pipeline failed';
+      document.getElementById('subtitle').textContent = 'Something went wrong. See the error below.';
+      document.getElementById('badgeSpin').style.display = 'none';
+      document.getElementById('badgeText').textContent = 'Stopped';
+      document.getElementById('eta').style.display = 'none';
+
+      const eb = document.getElementById('errBox');
+      eb.textContent = error || 'Unknown error.';
+      eb.classList.add('show');
+
+      const btns = document.getElementById('btns');
+      btns.style.display = 'flex';
+      btns.innerHTML = `<a href="/" class="btn btn-outline">← Try again</a>`;
+      return;
+
+    } else {
+      // idle — pipeline not started
+      document.getElementById('badgeText').textContent = 'Waiting for pipeline to start…';
+    }
+  } catch(e) {}
+
+  setTimeout(poll, 2500);
+}
+
+poll();
+</script>
+</body>
+</html>

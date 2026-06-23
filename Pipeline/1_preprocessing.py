@@ -12,11 +12,6 @@ import json
 import re
 import pandas as pd
 
-try:
-    from autocorrect import Speller
-except ImportError:
-    raise ImportError("Run: pip install autocorrect")
-
 
 # ---------- comment_id ----------
 
@@ -62,16 +57,11 @@ def cleanWhitespace(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
-def correctSpelling(text, speller):
-    return speller(text)
-
-
-def cleanText(text, slang_dict, speller):
+def cleanText(text, slang_dict):
     text = stripUrls(text)
     text = stripMentions(text)
     text = stripExcessivePunctuation(text)
     text = expandSlang(text, slang_dict)
-    text = correctSpelling(text, speller)
     text = cleanWhitespace(text)
     return text
 
@@ -101,9 +91,8 @@ def runPreprocessing(input_path="../Datasets/Versions/comments.csv", output_path
     df = df.drop_duplicates(subset=["author", "text"], keep="first")
 
     slang_dict = loadSlangDict(slang_path)
-    speller = Speller(lang="en")
 
-    df["cleaned_text"] = df["text"].apply(lambda t: cleanText(t, slang_dict, speller))
+    df["cleaned_text"] = df["text"].apply(lambda t: cleanText(t, slang_dict))
 
     df = df[df["cleaned_text"].str.len() >= 5]
 
@@ -116,4 +105,9 @@ def runPreprocessing(input_path="../Datasets/Versions/comments.csv", output_path
 
 
 if __name__ == "__main__":
-    runPreprocessing()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", default="../Datasets/Versions/comments.csv")
+    parser.add_argument("--output", default="processed_comments.csv")
+    a = parser.parse_args()
+    runPreprocessing(input_path=a.input, output_path=a.output)

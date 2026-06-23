@@ -11,9 +11,8 @@ python-dotenv
 
 # ---------- Stage 1: preprocessing ----------
 pandas
-autocorrect
 
-# ---------- Stage 2: analysis (sentiment, NER, topic modeling) ----------
+# ---------- Stage 2: analysis (sentiment, NER, topic modeling, keywords) ----------
 numpy
 tqdm
 spacy

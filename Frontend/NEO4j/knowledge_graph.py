@@ -29,11 +29,19 @@ def get_driver():
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-print("[knowledge_graph] Loading REBEL model...")
-tokenizer = AutoTokenizer.from_pretrained("Babelscape/rebel-large")
-model = AutoModelForSeq2SeqLM.from_pretrained("Babelscape/rebel-large")
-model.to(device)
-print(f"[knowledge_graph] REBEL loaded on {device}")
+# REBEL is only needed when loading the graph (load_graph), not at query time.
+# Lazy-loaded on first call to extract_triplets so api.py startup isn't blocked.
+_tokenizer = None
+_model = None
+
+def _load_rebel():
+    global _tokenizer, _model
+    if _tokenizer is None:
+        print("[knowledge_graph] Loading REBEL model...")
+        _tokenizer = AutoTokenizer.from_pretrained("Babelscape/rebel-large")
+        _model = AutoModelForSeq2SeqLM.from_pretrained("Babelscape/rebel-large")
+        _model.to(device)
+        print(f"[knowledge_graph] REBEL loaded on {device}")
 
 # ---------------------------------------------------------------------------
 # REBEL parser
@@ -96,7 +104,8 @@ def parse_rebel_output(text):
 # ---------------------------------------------------------------------------
 
 def extract_triplets(text):
-    model_inputs = tokenizer(
+    _load_rebel()
+    model_inputs = _tokenizer(
         text,
         max_length=512,
         padding="max_length",
@@ -105,7 +114,7 @@ def extract_triplets(text):
     )
     model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
 
-    gen_outputs = model.generate(
+    gen_outputs = _model.generate(
         input_ids=model_inputs["input_ids"],
         attention_mask=model_inputs["attention_mask"],
         max_length=256,
@@ -114,7 +123,7 @@ def extract_triplets(text):
         early_stopping=True
     )
 
-    raw_token_string = tokenizer.batch_decode(gen_outputs, skip_special_tokens=False)[0]
+    raw_token_string = _tokenizer.batch_decode(gen_outputs, skip_special_tokens=False)[0]
     return parse_rebel_output(raw_token_string)
 
 

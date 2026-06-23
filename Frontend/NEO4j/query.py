@@ -5,7 +5,7 @@ from .knowledge_graph import get_context_for_entity
 
 import mlflow
 mlflow.set_experiment("CampaignLens_Chatbots")
-mlflow.langchain.autolog()
+mlflow.dspy.autolog()
 
 load_dotenv()
 

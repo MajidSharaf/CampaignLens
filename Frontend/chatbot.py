@@ -9,7 +9,7 @@ from retrieval import retrieve, get_weaviate_client
 
 import mlflow
 mlflow.set_experiment("CampaignLens_Chatbots")
-mlflow.langchain.autolog()
+mlflow.dspy.autolog()
 
 load_dotenv()
 

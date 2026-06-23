@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CampaignLens — Analysis</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1A4494;
+  --blue-lt:#EEF3FB;
+  --red:#B01C2E;
+  --red-lt:#FCEEEE;
+  --text:#0A0F1E;
+  --muted:#6B7280;
+  --border:#D4D8E1;
+  --bg:#FFFFFF;
+  --surface:#F7F8FA;
+  --green:#15803D;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6}
+
+nav{display:flex;align-items:center;gap:1rem;padding:0 2.5rem;height:56px;border-bottom:1px solid var(--border)}
+.wordmark{font-size:14px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text);text-decoration:none}
+.wordmark span{color:var(--blue)}
+.nav-links{display:flex;gap:1.5rem;margin-left:auto;align-items:center}
+.nav-link{font-size:13px;color:var(--muted);text-decoration:none;transition:color .15s;display:flex;align-items:center;gap:4px}
+.nav-link:hover{color:var(--text)}
+.nav-link.active{color:var(--blue);font-weight:600}
+
+.page-header{padding:2.5rem 2.5rem 0;border-bottom:1px solid var(--border);padding-bottom:2rem}
+.page-eyebrow{font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem}
+.page-title{font-size:1.8rem;font-weight:700;letter-spacing:-0.02em;margin-bottom:0.4rem}
+.page-desc{font-size:14px;color:var(--muted);max-width:64ch}
+
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-top:none}
+.metric{background:var(--bg);padding:1.25rem 1.5rem}
+.metric-num{font-size:1.5rem;font-weight:700;letter-spacing:-0.02em;margin-bottom:2px}
+.metric-label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)}
+.metric-num.blue{color:var(--blue)}
+.metric-num.red{color:var(--red)}
+.metric-num.green{color:var(--green)}
+
+.content{padding:2.5rem}
+
+/* Section */
+.section{margin-bottom:3.5rem}
+.section-head{display:flex;align-items:baseline;gap:1rem;margin-bottom:1.5rem;padding-bottom:0.875rem;border-bottom:1px solid var(--border)}
+.section-title{font-size:1rem;font-weight:700;letter-spacing:-0.01em}
+.section-sub{font-size:13px;color:var(--muted)}
+
+/* Sentiment grid */
+.sent-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+.model-card{background:var(--surface);border:1px solid var(--border);padding:1.25rem}
+.model-name{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.bar-group{display:flex;flex-direction:column;gap:0.75rem}
+.bar-row{display:grid;grid-template-columns:72px 1fr 52px;gap:0.75rem;align-items:center;font-size:13px}
+.bar-label{color:var(--muted);text-align:right;text-transform:capitalize}
+.bar-track{height:8px;background:var(--border);position:relative}
+.bar-fill{position:absolute;left:0;top:0;height:100%;transition:width .6s ease}
+.bar-fill.pos{background:var(--blue)}
+.bar-fill.neu{background:#94A3B8}
+.bar-fill.neg{background:var(--red)}
+.bar-count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+.agreement-note{margin-top:1rem;font-size:12px;color:var(--muted);padding:0.75rem 1rem;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;gap:0.5rem}
+
+/* NER */
+.ner-layout{display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;align-items:start}
+.ner-filters{display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.filter-btn{height:28px;padding:0 0.75rem;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s}
+.filter-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.filter-btn:hover:not(.active){border-color:var(--blue);color:var(--blue)}
+
+.ner-bars{display:flex;flex-direction:column;gap:6px}
+.ner-row{display:grid;grid-template-columns:130px 1fr 56px;gap:0.75rem;align-items:center;font-size:13px}
+.ner-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);font-size:12px}
+.ner-track{height:6px;background:var(--border);position:relative}
+.ner-fill{position:absolute;left:0;top:0;height:100%;background:var(--blue);transition:width .5s ease}
+.ner-count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+
+.type-list{background:var(--surface);border:1px solid var(--border);padding:1.25rem}
+.type-head{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.type-row{display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--border);font-size:13px}
+.type-row:last-child{border-bottom:none}
+.type-name{color:var(--text)}
+.type-badge{font-size:11px;font-family:"SF Mono","Fira Code",monospace;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:1px 6px}
+
+/* Topics */
+.topics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+.topic-card{border:1px solid var(--border);padding:1rem 1.25rem}
+.topic-meta{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem}
+.topic-id{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)}
+.topic-weight{font-size:12px;color:var(--muted)}
+.topic-words{display:flex;flex-wrap:wrap;gap:6px}
+.word-tag{font-size:12px;font-family:"SF Mono","Fira Code",monospace;padding:3px 8px;background:var(--surface);border:1px solid var(--border);color:var(--text)}
+.word-tag:first-child{background:var(--blue-lt);border-color:rgba(26,68,148,.2);color:var(--blue);font-weight:600}
+
+/* Loading / error */
+.loading{padding:3rem;text-align:center;color:var(--muted);font-size:14px}
+.error-note{padding:1.25rem;background:#FFF5F5;border:1px solid rgba(176,28,46,.2);border-left:3px solid var(--red);font-size:13px;color:var(--red)}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="wordmark" href="/">Campaign<span>Lens</span></a>
+  <div class="nav-links">
+    <a class="nav-link" href="/chat"><i class="ti ti-message-circle" aria-hidden="true"></i> Chatbots</a>
+    <a class="nav-link active" href="/analysis"><i class="ti ti-chart-bar" aria-hidden="true"></i> Analysis</a>
+    <a class="nav-link" href="/setup"><i class="ti ti-terminal-2" aria-hidden="true"></i> Setup</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="page-eyebrow">Pipeline output</div>
+  <h1 class="page-title">Comment analysis</h1>
+  <p class="page-desc">Sentiment labels, named entities, and LDA topics extracted from the full comment corpus. Results are computed from the pipeline CSV files at startup.</p>
+  <div class="metrics" id="metricsRow">
+    <div class="metric"><div class="metric-num" id="mTotal">—</div><div class="metric-label">Total comments</div></div>
+    <div class="metric"><div class="metric-num blue" id="mPositive">—</div><div class="metric-label">Positive (Vader)</div></div>
+    <div class="metric"><div class="metric-num red" id="mNegative">—</div><div class="metric-label">Negative (Vader)</div></div>
+    <div class="metric"><div class="metric-num green" id="mAgreement">—</div><div class="metric-label">Model agreement</div></div>
+  </div>
+</div>
+
+<div class="content" id="mainContent">
+  <div class="loading" id="loadingMsg">
+    <i class="ti ti-loader" aria-hidden="true"></i> Loading analysis data…
+  </div>
+</div>
+
+<script>
+async function init(){
+  try{
+    const res=await fetch('/api/analysis');
+    if(!res.ok) throw new Error(await res.text());
+    const d=await res.json();
+    renderAll(d);
+  }catch(e){
+    document.getElementById('loadingMsg').outerHTML=
+      `<div class="error-note"><strong>Could not load analysis data.</strong> ${e.message}</div>`;
+  }
+}
+
+function fmt(n){return n.toLocaleString();}
+function pct(n,total){return Math.round(n/total*100);}
+
+function renderAll(d){
+  const loading=document.getElementById('loadingMsg');
+  if(loading)loading.remove();
+
+  document.getElementById('mTotal').textContent=fmt(d.total_comments);
+  document.getElementById('mPositive').textContent=fmt(d.sentiment.vader.positive);
+  document.getElementById('mNegative').textContent=fmt(d.sentiment.vader.negative);
+  document.getElementById('mAgreement').textContent=d.sentiment.agreement_pct+'%';
+
+  const content=document.getElementById('mainContent');
+  content.innerHTML=`
+    ${renderSentiment(d)}
+    ${renderNER(d)}
+    ${renderTopics(d)}
+  `;
+  attachNERFilters(d.ner);
+}
+
+function renderSentiment(d){
+  const total=d.total_comments;
+  function bars(model, key){
+    const s=d.sentiment[key];
+    const maxN=Math.max(s.positive,s.neutral,s.negative);
+    return ['positive','neutral','negative'].map(lbl=>{
+      const n=s[lbl];
+      const w=Math.round(n/maxN*100);
+      const cls=lbl==='positive'?'pos':lbl==='neutral'?'neu':'neg';
+      return `<div class="bar-row">
+        <div class="bar-label">${lbl}</div>
+        <div class="bar-track"><div class="bar-fill ${cls}" style="width:${w}%"></div></div>
+        <div class="bar-count">${fmt(n)}</div>
+      </div>`;
+    }).join('');
+  }
+  return `
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Sentiment analysis</div>
+      <div class="section-sub">Vader (lexicon-based) vs RoBERTa (transformer-based) — ${fmt(total)} comments</div>
+    </div>
+    <div class="sent-grid">
+      <div class="model-card">
+        <div class="model-name">Vader</div>
+        <div class="bar-group">${bars('vader','vader')}</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">RoBERTa</div>
+        <div class="bar-group">${bars('roberta','roberta')}</div>
+      </div>
+    </div>
+    <div class="agreement-note">
+      <i class="ti ti-info-circle" aria-hidden="true"></i>
+      Both models agree on the sentiment label for <strong>${d.sentiment.agreement_pct}%</strong> of non-neutral comments. Disagreements are typical — Vader is rule-based, RoBERTa is context-aware.
+    </div>
+  </div>`;
+}
+
+function renderNER(d){
+  const all=d.ner.top_entities;
+  const types=d.ner.by_type;
+  const typeRows=Object.entries(types)
+    .filter(([k])=>['GPE','PERSON','ORG','NORP','LOC'].includes(k))
+    .sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>`<div class="type-row"><span class="type-name">${k}</span><span class="type-badge">${fmt(v)}</span></div>`)
+    .join('');
+
+  const filterBtns=['All','GPE','PERSON','ORG','NORP']
+    .map(t=>`<button class="filter-btn${t==='All'?' active':''}" data-type="${t}" onclick="filterNER('${t}')">${t}</button>`)
+    .join('');
+
+  const maxCount=all[0]?.count||1;
+  const nerRows=all.map(e=>`
+    <div class="ner-row" data-type="${e.label}">
+      <div class="ner-label" title="${e.text}">${e.text}</div>
+      <div class="ner-track"><div class="ner-fill" style="width:${Math.round(e.count/maxCount*100)}%"></div></div>
+      <div class="ner-count">${fmt(e.count)}</div>
+    </div>`).join('');
+
+  return `
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Named entity recognition</div>
+      <div class="section-sub">Top 30 entities — locations, people, organisations, nationalities</div>
+    </div>
+    <div class="ner-layout">
+      <div>
+        <div class="ner-filters" id="nerFilters">${filterBtns}</div>
+        <div class="ner-bars" id="nerBars">${nerRows}</div>
+      </div>
+      <div class="type-list">
+        <div class="type-head">By entity type</div>
+        ${typeRows}
+      </div>
+    </div>
+  </div>`;
+}
+
+function filterNER(type){
+  document.querySelectorAll('.filter-btn').forEach(b=>{
+    b.classList.toggle('active',b.dataset.type===type);
+  });
+  document.querySelectorAll('#nerBars .ner-row').forEach(row=>{
+    const show=type==='All'||row.dataset.type===type;
+    row.style.display=show?'grid':'none';
+  });
+}
+
+function attachNERFilters(){}
+
+function renderTopics(d){
+  const cards=d.topics.map((t,i)=>{
+    const words=t.words.map((w,wi)=>`<span class="word-tag">${w}</span>`).join('');
+    return `
+    <div class="topic-card">
+      <div class="topic-meta">
+        <div class="topic-id">Topic ${t.id+1}</div>
+        <div class="topic-weight">${t.weight_pct}% of corpus</div>
+      </div>
+      <div class="topic-words">${words}</div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Topic modeling</div>
+      <div class="section-sub">LDA — 10 topics, 1,500 vocabulary. First word in each card is the strongest signal.</div>
+    </div>
+    <div class="topics-grid">${cards}</div>
+  </div>`;
+}
+
+init();
+</script>
+</body>
+</html>

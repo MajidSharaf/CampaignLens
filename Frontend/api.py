@@ -2,23 +2,61 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import os
+import time
+import shutil
+import subprocess
+import threading
+import httpx
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from NEO4j.router import run_router
+from analysis import load_analysis
 
 load_dotenv()
 
-app = FastAPI(
-    title="CampaignLens Chatbot API",
-    description="Supporter and Critic chatbots grounded in real YouTube comments.",
-    version="1.0.0",
-)
+app = FastAPI(title="CampaignLens API", version="1.0.0")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ---------------------------------------------------------------------------
-# Request / Response schemas
+# In-memory evaluation tracker
+# Accumulates per-request stats across the session.
+# Logged to MLflow per run; aggregated here for the dashboard.
 # ---------------------------------------------------------------------------
+
+_stats = {
+    "total_queries": 0,
+    "supporter_queries": 0,
+    "critic_queries": 0,
+    "rag_routes": 0,
+    "graph_routes": 0,
+    "uncertain_count": 0,
+    "confidence_sum": 0.0,
+    "response_times_ms": [],
+    "low_confidence_questions": [],   # questions where confidence < 0.4
+}
+
+def _record(persona: str, result: dict, elapsed_ms: float):
+    _stats["total_queries"] += 1
+    _stats[f"{persona}_queries"] += 1
+    _stats[f"{result.get('route','rag')}_routes"] += 1
+    if result.get("uncertain"):
+        _stats["uncertain_count"] += 1
+    conf = float(result.get("confidence", 0.0))
+    _stats["confidence_sum"] += conf
+    _stats["response_times_ms"].append(elapsed_ms)
+    if conf < 0.4 and result.get("question"):
+        _stats["low_confidence_questions"].append(result["question"])
+
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
+
+class PipelineRunRequest(BaseModel):
+    urls: list[str]
 
 class ChatRequest(BaseModel):
     question: str
@@ -33,34 +71,278 @@ class ChatResponse(BaseModel):
     route: str
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# Helpers
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+def _extract_video_id(url_or_id: str) -> str:
+    s = url_or_id.strip()
+    for pattern in [
+        r"(?:v=|\/)([0-9A-Za-z_-]{11})",
+        r"youtu\.be\/([0-9A-Za-z_-]{11})",
+        r"embed\/([0-9A-Za-z_-]{11})",
+        r"shorts\/([0-9A-Za-z_-]{11})",
+    ]:
+        m = _re.search(pattern, s)
+        if m:
+            return m.group(1)
+    if _re.fullmatch(r"[0-9A-Za-z_-]{11}", s):
+        return s
+    raise ValueError(f"Cannot parse video ID from: {s}")
+
+# ---------------------------------------------------------------------------
+# Pages
 # ---------------------------------------------------------------------------
 
 @app.get("/")
-def root():
-    return {"status": "ok", "message": "CampaignLens API is running."}
+def index():
+    return FileResponse("static/index.html")
+
+@app.get("/dashboard")
+def dashboard():
+    return FileResponse("static/dashboard.html")
+
+@app.get("/setup")
+def setup_page():
+    return FileResponse("static/setup.html")
+
+@app.get("/progress")
+def progress_page():
+    return FileResponse("static/progress.html")
+
+# ---------------------------------------------------------------------------
+# API — health
+# ---------------------------------------------------------------------------
+
+def _probe(url: str, timeout: float = 2.0) -> bool:
+    try:
+        r = httpx.get(url, timeout=timeout)
+        return r.status_code < 500
+    except Exception:
+        return False
 
 
-@app.get("/health")
-def health():
-    return {"status": "healthy"}
+def _weaviate_collections():
+    try:
+        import weaviate
+        client = weaviate.connect_to_local(
+            host=os.getenv("WEAVIATE_HOST", "weaviate"),
+            port=int(os.getenv("WEAVIATE_PORT", 8080)),
+        )
+        pos = client.collections.exists("PositiveComments")
+        neg = client.collections.exists("NegativeComments")
+        client.close()
+        return {"positive_exists": pos, "negative_exists": neg}
+    except Exception as e:
+        return {"error": str(e)}
 
+
+@app.get("/api/health")
+def api_health():
+    ollama_url   = os.getenv("OLLAMA_URL", "http://ollama:11434")
+    weaviate_url = f"http://{os.getenv('WEAVIATE_HOST','weaviate')}:{os.getenv('WEAVIATE_PORT',8080)}/v1/.well-known/ready"
+    mlflow_url   = "http://mlflow:5001"
+    neo4j_url    = "http://neo4j:7474"
+
+    weaviate_up = _probe(weaviate_url)
+    ollama_up   = _probe(ollama_url)
+    neo4j_up    = _probe(neo4j_url)
+    mlflow_up   = _probe(mlflow_url)
+
+    return {
+        "timestamp": int(time.time()),
+        "services": {
+            "weaviate": {"status": "online" if weaviate_up else "offline", "port": 8080},
+            "ollama":   {"status": "online" if ollama_up   else "offline", "port": 11434},
+            "neo4j":    {"status": "online" if neo4j_up    else "offline", "port": 7474},
+            "mlflow":   {"status": "online" if mlflow_up   else "offline", "port": 5001},
+            "chatbot":  {"status": "online", "port": 8000},
+        },
+        "collections": _weaviate_collections() if weaviate_up else {},
+    }
+
+# ---------------------------------------------------------------------------
+# API — evaluation metrics
+# ---------------------------------------------------------------------------
+
+@app.get("/api/eval")
+def api_eval():
+    t = _stats["total_queries"]
+    times = _stats["response_times_ms"]
+
+    avg_conf = round(_stats["confidence_sum"] / t, 3) if t else 0.0
+    uncertain_rate = round(_stats["uncertain_count"] / t * 100, 1) if t else 0.0
+    rag_pct  = round(_stats["rag_routes"]   / t * 100, 1) if t else 0.0
+    graph_pct= round(_stats["graph_routes"] / t * 100, 1) if t else 0.0
+    avg_ms   = round(sum(times) / len(times), 0) if times else 0
+    p95_ms   = round(sorted(times)[int(len(times) * 0.95)], 0) if len(times) >= 2 else avg_ms
+
+    return {
+        "total_queries": t,
+        "by_persona": {
+            "supporter": _stats["supporter_queries"],
+            "critic":    _stats["critic_queries"],
+        },
+        "routing": {
+            "rag":   {"count": _stats["rag_routes"],   "pct": rag_pct},
+            "graph": {"count": _stats["graph_routes"],  "pct": graph_pct},
+        },
+        "confidence": {
+            "avg":           avg_conf,
+            "uncertain_count": _stats["uncertain_count"],
+            "uncertain_rate_pct": uncertain_rate,
+        },
+        "latency_ms": {
+            "avg": avg_ms,
+            "p95": p95_ms,
+        },
+        "low_confidence_questions": _stats["low_confidence_questions"][-5:],
+    }
+
+# ---------------------------------------------------------------------------
+# API — pipeline
+# ---------------------------------------------------------------------------
+
+_pipeline = {"status": "idle", "stage": "", "error": ""}
+
+def _run_pipeline(urls: list[str]):
+    pipeline_dir = "/app/pipeline_data"
+    dataset_dir = "/dataset"
+    weaviate_dir = "/app/weaviate_app"
+    env = {**os.environ}
+    try:
+        _pipeline.update({"status": "running", "stage": "scraping", "error": ""})
+        r = subprocess.run(
+            ["python", "0_scraper.py", "--urls", ",".join(urls)],
+            cwd=pipeline_dir, capture_output=True, text=True, env=env
+        )
+        if r.returncode != 0:
+            raise RuntimeError(r.stderr or r.stdout)
+
+        _pipeline["stage"] = "preprocessing"
+        r = subprocess.run(
+            ["python", "1_preprocessing.py", "--input", "comments.csv", "--output", "processed_comments.csv"],
+            cwd=pipeline_dir, capture_output=True, text=True, env=env
+        )
+        if r.returncode != 0:
+            raise RuntimeError(r.stderr or r.stdout)
+
+        _pipeline["stage"] = "analyzing"
+        r = subprocess.run(
+            ["python", "2_analysis.py", "--input", "processed_comments.csv", "--output", "analysis_results.csv"],
+            cwd=pipeline_dir, capture_output=True, text=True, env=env
+        )
+        if r.returncode != 0:
+            raise RuntimeError(r.stderr or r.stdout)
+
+        # Copy CSV to /dataset so embedding.py can read it
+        _pipeline["stage"] = "embedding"
+        os.makedirs(dataset_dir, exist_ok=True)
+        shutil.copy(f"{pipeline_dir}/analysis_results.csv", f"{dataset_dir}/analysis_results.csv")
+
+        r = subprocess.run(
+            ["python", "embedding.py"],
+            cwd=weaviate_dir, capture_output=True, text=True, env=env
+        )
+        if r.returncode != 0:
+            raise RuntimeError(r.stderr or r.stdout)
+
+        _pipeline["stage"] = "vectorizing"
+        r = subprocess.run(
+            ["python", "vectorize.py"],
+            cwd=weaviate_dir, capture_output=True, text=True, env=env
+        )
+        if r.returncode != 0:
+            raise RuntimeError(r.stderr or r.stdout)
+
+        _pipeline.update({"status": "complete", "stage": "done"})
+    except Exception as e:
+        _pipeline.update({"status": "error", "stage": "failed", "error": str(e)[:300]})
+
+
+@app.post("/api/pipeline/validate")
+def api_pipeline_validate(req: PipelineRunRequest):
+    api_key = os.getenv("YOUTUBE_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="YOUTUBE_API_KEY not configured in .env.")
+    try:
+        from googleapiclient.discovery import build as _yt_build
+        youtube = _yt_build("youtube", "v3", developerKey=api_key)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"YouTube client error: {e}")
+
+    errors: dict[str, str] = {}
+    valid_ids: list[str] = []
+    for raw in req.urls:
+        try:
+            vid = _extract_video_id(raw)
+        except ValueError:
+            errors[raw] = "Not a valid YouTube URL or video ID."
+            continue
+        try:
+            resp = youtube.videos().list(part="id,status,contentDetails", id=vid).execute()
+            items = resp.get("items", [])
+            if not items:
+                errors[raw] = "Video not found — it may be private, deleted, or the ID is wrong."
+            else:
+                privacy = items[0].get("status", {}).get("privacyStatus", "")
+                if privacy == "private":
+                    errors[raw] = "Video is private."
+                else:
+                    valid_ids.append(vid)
+        except Exception as e:
+            errors[raw] = f"YouTube API error: {str(e)[:120]}"
+
+    return {"valid": len(errors) == 0, "valid_ids": valid_ids, "errors": errors}
+
+
+@app.post("/api/pipeline/run")
+def api_pipeline_run(req: PipelineRunRequest):
+    if not req.urls:
+        raise HTTPException(status_code=400, detail="No URLs provided.")
+    if _pipeline["status"] == "running":
+        raise HTTPException(status_code=409, detail="Pipeline already running.")
+    threading.Thread(target=_run_pipeline, args=(req.urls,), daemon=True).start()
+    return {"status": "started"}
+
+
+@app.get("/api/pipeline/status")
+def api_pipeline_status():
+    return _pipeline
+
+
+# ---------------------------------------------------------------------------
+# API — analysis
+# ---------------------------------------------------------------------------
+
+@app.get("/api/analysis")
+def api_analysis():
+    data = load_analysis()
+    if data is None:
+        raise HTTPException(status_code=503, detail="Pipeline data not available. Check PIPELINE_DATA_PATH.")
+    return data
+
+# ---------------------------------------------------------------------------
+# API — chat
+# ---------------------------------------------------------------------------
 
 @app.post("/chat/supporter", response_model=ChatResponse)
 def chat_supporter(req: ChatRequest):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
-
+    t0 = time.time()
     result = run_router(question=req.question, persona="supporter")
-
+    elapsed = (time.time() - t0) * 1000
+    result["question"] = req.question
+    _record("supporter", result, elapsed)
     return ChatResponse(
-        persona="supporter",
-        question=req.question,
-        response=result["response"],
-        confidence=result["confidence"],
-        uncertain=result["uncertain"],
-        sources=result["sources"],
-        route=result["route"]
+        persona="supporter", question=req.question,
+        response=result.get("response", ""),
+        confidence=float(result.get("confidence", 0.0)),
+        uncertain=bool(result.get("uncertain", False)),
+        sources=result.get("sources", []),
+        route=result.get("route", "rag"),
     )
 
 
@@ -68,23 +350,20 @@ def chat_supporter(req: ChatRequest):
 def chat_critic(req: ChatRequest):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
-
+    t0 = time.time()
     result = run_router(question=req.question, persona="critic")
-
+    elapsed = (time.time() - t0) * 1000
+    result["question"] = req.question
+    _record("critic", result, elapsed)
     return ChatResponse(
-        persona="critic",
-        question=req.question,
-        response=result["response"],
-        confidence=result["confidence"],
-        uncertain=result["uncertain"],
-        sources=result["sources"],
-        route=result["route"]
+        persona="critic", question=req.question,
+        response=result.get("response", ""),
+        confidence=float(result.get("confidence", 0.0)),
+        uncertain=bool(result.get("uncertain", False)),
+        sources=result.get("sources", []),
+        route=result.get("route", "rag"),
     )
 
-
-# ---------------------------------------------------------------------------
-# Run directly: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     import uvicorn

@@ -286,6 +286,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     <button class="tab-btn" onclick="switchTab('health',this)" id="tab-health">
       <i class="ti ti-heart-rate-monitor" aria-hidden="true"></i> Health
     </button>
+    <button class="tab-btn" onclick="switchTab('judge',this)" id="tab-judge">
+      <i class="ti ti-gavel" aria-hidden="true"></i> Judge
+    </button>
   </div>
 
   <a class="back-link" href="/"><i class="ti ti-arrow-left" aria-hidden="true"></i> Back</a>
@@ -400,6 +403,63 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   </div>
 </div>
 
+<!-- ── TAB: JUDGE ── -->
+<div class="panel" id="panel-judge">
+  <div class="health-body">
+    <div class="health-header">
+      <div class="health-title-block">
+        <div class="an-eyebrow">Evaluation</div>
+        <div class="an-title">Judge</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Question</label>
+        <textarea id="j-question" rows="3" placeholder="What do people think about Trump's economy?" style="border:1px solid var(--border);padding:.5rem .75rem;font-family:inherit;font-size:13px;resize:vertical;outline:none;width:100%"></textarea>
+      </div>
+      <div></div>
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue)">Supporter Response</label>
+        <textarea id="j-supporter" rows="5" placeholder="Paste the supporter chatbot's response…" style="border:1px solid var(--blue-border);padding:.5rem .75rem;font-family:inherit;font-size:13px;resize:vertical;outline:none;width:100%"></textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red)">Critic Response</label>
+        <textarea id="j-critic" rows="5" placeholder="Paste the critic chatbot's response…" style="border:1px solid var(--red-border);padding:.5rem .75rem;font-family:inherit;font-size:13px;resize:vertical;outline:none;width:100%"></textarea>
+      </div>
+    </div>
+
+    <button onclick="runJudge()" id="j-btn" style="height:36px;padding:0 1.25rem;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;margin-bottom:1.5rem">
+      <i class="ti ti-gavel"></i> Judge
+    </button>
+
+    <div id="j-result" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+        <div class="eval-card">
+          <div class="eval-card-title" style="color:var(--blue)">Supporter</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:.5rem 0">
+            <div class="eval-bar-track" style="flex:1"><div class="eval-bar-fill" id="j-s-bar" style="background:var(--blue)"></div></div>
+            <span id="j-s-score" style="font-size:12px;font-family:monospace;min-width:32px"></span>
+          </div>
+          <div id="j-s-feedback" style="font-size:13px;line-height:1.55;color:var(--text)"></div>
+        </div>
+        <div class="eval-card">
+          <div class="eval-card-title" style="color:var(--red)">Critic</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:.5rem 0">
+            <div class="eval-bar-track" style="flex:1"><div class="eval-bar-fill" id="j-c-bar" style="background:var(--red)"></div></div>
+            <span id="j-c-score" style="font-size:12px;font-family:monospace;min-width:32px"></span>
+          </div>
+          <div id="j-c-feedback" style="font-size:13px;line-height:1.55;color:var(--text)"></div>
+        </div>
+      </div>
+      <div class="eval-card" style="border-left:3px solid var(--border)">
+        <div class="eval-card-title">Verdict</div>
+        <div id="j-verdict" style="font-size:13px;line-height:1.6;color:var(--text);margin-top:.25rem"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ── pipeline gate ── */
 (async()=>{
@@ -430,6 +490,7 @@ function switchTab(name,btn){
   btn.classList.add('active');
   if(name==='analysis'&&!analysisLoaded)loadAnalysis();
   if(name==='health')loadHealth();
+  if(name==='judge'){}
 }
 
 /* ════════════════════════════════════
@@ -764,6 +825,41 @@ function renderHealth(d){
       <div class="coll-status">${coll.negative_exists?'<span class="ready">Ready</span>':'<span class="missing">Not loaded</span>'}</div>
     </div>
   `;
+}
+
+/* ════════════════════════════════════
+   JUDGE
+════════════════════════════════════ */
+async function runJudge(){
+  const q = document.getElementById('j-question').value.trim();
+  const s = document.getElementById('j-supporter').value.trim();
+  const c = document.getElementById('j-critic').value.trim();
+  if(!q||!s||!c){alert('Fill in all three fields.');return;}
+
+  const btn = document.getElementById('j-btn');
+  btn.disabled=true;
+  btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Judging…';
+  document.getElementById('j-result').style.display='none';
+
+  try{
+    const res = await fetch('/api/judge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,supporter_response:s,critic_response:c})});
+    const d = await res.json();
+    const sc = Math.round((d.supporter_score||0)*100);
+    const cc = Math.round((d.critic_score||0)*100);
+    document.getElementById('j-s-bar').style.width=sc+'%';
+    document.getElementById('j-s-score').textContent=sc+'%';
+    document.getElementById('j-s-feedback').textContent=d.supporter_feedback||'';
+    document.getElementById('j-c-bar').style.width=cc+'%';
+    document.getElementById('j-c-score').textContent=cc+'%';
+    document.getElementById('j-c-feedback').textContent=d.critic_feedback||'';
+    document.getElementById('j-verdict').textContent=d.verdict||'';
+    document.getElementById('j-result').style.display='block';
+  }catch(e){
+    alert('Judge error: '+e);
+  }
+
+  btn.disabled=false;
+  btn.innerHTML='<i class="ti ti-gavel"></i> Judge';
 }
 
 /* ── utils ── */

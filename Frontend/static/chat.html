@@ -100,10 +100,38 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
 .panel.critic    .send-btn{background:var(--red)}
 .send-btn:not(:disabled):hover{opacity:.85}
 
+/* judge */
+.judge-bar{border-top:1px solid var(--border);padding:6px 1.5rem;background:var(--surface);display:none;align-items:center;gap:8px;flex-shrink:0}
+.judge-bar.visible{display:flex}
+.judge-q{font-size:11px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.judge-btn{height:28px;padding:0 .9rem;border:1px solid var(--blue);background:none;color:var(--blue);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;transition:background .15s,color .15s}
+.judge-btn:hover{background:var(--blue);color:#fff}
+.judge-btn:disabled{opacity:.4;cursor:not-allowed}
+.judge-modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:100}
+.judge-modal-wrap.open{display:flex}
+.judge-modal{background:var(--bg);border:1px solid var(--border);width:560px;max-width:90vw;max-height:80vh;overflow-y:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.judge-modal h2{font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+.judge-section{display:flex;flex-direction:column;gap:4px}
+.judge-section-label{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.judge-score-row{display:flex;align-items:center;gap:8px}
+.judge-score-track{flex:1;height:4px;background:var(--border);position:relative}
+.judge-score-fill{position:absolute;left:0;top:0;height:100%;transition:width .4s}
+.judge-feedback{font-size:13px;line-height:1.55;color:var(--text)}
+.judge-verdict{font-size:13px;line-height:1.55;color:var(--text);padding:.75rem;background:var(--surface);border-left:3px solid var(--border)}
+.judge-close{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
+.judge-close:hover{color:var(--text)}
+
 /* sync bar */
-.sync-strip{display:flex;align-items:center;gap:6px;padding:6px 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
-.sync-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;flex-shrink:0}
+.sync-strip{display:flex;align-items:center;gap:8px;padding:6px 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;flex-shrink:0;transition:background .2s}
+.sync-dot.off{background:#D1D5DB}
 .sync-text{font-size:11px;color:var(--muted)}
+.sync-toggle{margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.sync-toggle-label{font-size:11px;color:var(--muted)}
+.toggle-track{width:28px;height:16px;border-radius:8px;background:#22C55E;position:relative;transition:background .2s;flex-shrink:0}
+.toggle-track.off{background:#D1D5DB}
+.toggle-thumb{width:12px;height:12px;border-radius:50%;background:#fff;position:absolute;top:2px;left:14px;transition:left .2s}
+.toggle-thumb.off{left:2px}
 </style>
 </head>
 <body>
@@ -113,14 +141,38 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
   <div class="wordmark">Campaign<span>Lens</span></div>
   <div class="pills" id="videoPills"></div>
   <div style="display:flex;gap:1.25rem;margin-left:auto;align-items:center">
+    <a href="/boxing" style="font-size:12px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'"><i class="ti ti-boxing-glove" aria-hidden="true"></i> Boxing</a>
     <a href="/analysis" style="font-size:12px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'"><i class="ti ti-chart-bar" aria-hidden="true"></i> Analysis</a>
     <a href="/setup" style="font-size:12px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'"><i class="ti ti-terminal-2" aria-hidden="true"></i> Setup</a>
   </div>
 </nav>
 
 <div class="sync-strip">
-  <div class="sync-dot"></div>
-  <span class="sync-text">Type in either panel — both chatbots receive the same question simultaneously</span>
+  <div class="sync-dot" id="syncDot"></div>
+  <span class="sync-text" id="syncText">Type in either panel — both chatbots receive the same question simultaneously</span>
+  <label class="sync-toggle" onclick="toggleSync()">
+    <span class="sync-toggle-label">Sync</span>
+    <div class="toggle-track" id="toggleTrack">
+      <div class="toggle-thumb" id="toggleThumb"></div>
+    </div>
+  </label>
+</div>
+
+<!-- Judge bar — appears when both sides have answered the same question -->
+<div class="judge-bar" id="judgeBar">
+  <i class="ti ti-gavel" style="color:var(--muted);font-size:14px"></i>
+  <span class="judge-q" id="judgeQ"></span>
+  <button class="judge-btn" id="judgeBtn" onclick="callJudge()">
+    <i class="ti ti-gavel"></i> Judge this exchange
+  </button>
+</div>
+
+<!-- Judge result modal -->
+<div class="judge-modal-wrap" id="judgeModal">
+  <div class="judge-modal">
+    <h2><i class="ti ti-gavel"></i> Judge's Verdict <button class="judge-close" onclick="closeJudge()">×</button></h2>
+    <div id="judgeContent"></div>
+  </div>
 </div>
 
 <div class="panels">
@@ -174,15 +226,36 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
 </div>
 
 <script>
+// Judge state — tracks last Q+A pair where both sides answered
+const _judge = { question: null, supporter: null, critic: null };
+
 const ids=JSON.parse(sessionStorage.getItem('videoIds')||'[]');
 const pillsEl=document.getElementById('videoPills');
 ids.forEach(id=>{
   const p=document.createElement('div');p.className='pill';p.textContent=id;pillsEl.appendChild(p);
 });
 
+let syncEnabled=true;
 let syncing=false;
+
+function toggleSync(){
+  syncEnabled=!syncEnabled;
+  document.getElementById('toggleTrack').classList.toggle('off',!syncEnabled);
+  document.getElementById('toggleThumb').classList.toggle('off',!syncEnabled);
+  document.getElementById('syncDot').classList.toggle('off',!syncEnabled);
+  document.getElementById('syncText').textContent=syncEnabled
+    ?'Type in either panel — both chatbots receive the same question simultaneously'
+    :'Independent mode — each panel sends its own question';
+  if(!syncEnabled){
+    document.getElementById('inputCritic').value='';
+    document.getElementById('inputSupporter').value='';
+    resize(document.getElementById('inputCritic'));
+    resize(document.getElementById('inputSupporter'));
+  }
+}
+
 function syncAndResize(src,targetId){
-  if(!syncing){
+  if(syncEnabled&&!syncing){
     syncing=true;
     const t=document.getElementById(targetId);
     t.value=src.value;
@@ -198,9 +271,13 @@ function resize(el){
 function handleKey(e,persona){
   if(e.key==='Enter'&&!e.shiftKey){
     e.preventDefault();
-    const other=persona==='supporter'?'critic':'supporter';
-    send(persona);
-    send(other);
+    if(syncEnabled){
+      const other=persona==='supporter'?'critic':'supporter';
+      send(persona);
+      send(other);
+    } else {
+      send(persona);
+    }
   }
 }
 
@@ -226,6 +303,10 @@ async function send(persona){
     const data=await res.json();
     typingEl.remove();
     appendAnswer(container,persona,data);
+    // track for judge
+    _judge[persona] = data.response || '';
+    if(_judge.question !== q){ _judge.question = q; _judge.supporter = null; _judge.critic = null; _judge[persona] = data.response || ''; }
+    if(_judge.supporter && _judge.critic){ showJudgeBar(q); }
   }catch(err){
     typingEl.remove();
     appendError(container,persona);
@@ -233,6 +314,67 @@ async function send(persona){
 
   btn.disabled=false;
   scrollDown(container);
+}
+
+function showJudgeBar(q){
+  document.getElementById('judgeQ').textContent = 'Q: '+q;
+  document.getElementById('judgeBar').classList.add('visible');
+}
+
+async function callJudge(){
+  const btn = document.getElementById('judgeBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Judging…';
+  document.head.insertAdjacentHTML('beforeend','<style>@keyframes spin{to{transform:rotate(360deg)}}</style>');
+
+  try{
+    const res = await fetch('/api/judge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      question: _judge.question,
+      supporter_response: _judge.supporter,
+      critic_response: _judge.critic
+    })});
+    const d = await res.json();
+    renderJudge(d);
+    document.getElementById('judgeModal').classList.add('open');
+  }catch(e){
+    alert('Judge error: '+e);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-gavel"></i> Judge this exchange';
+}
+
+function renderJudge(d){
+  const sConf = Math.round((d.supporter_score||0)*100);
+  const cConf = Math.round((d.critic_score||0)*100);
+  const sColor = sConf>=70?'#22C55E':sConf>=40?'#F59E0B':'#EF4444';
+  const cColor = cConf>=70?'#22C55E':cConf>=40?'#F59E0B':'#EF4444';
+  document.getElementById('judgeContent').innerHTML = `
+    <div class="judge-section">
+      <div class="judge-section-label">Supporter</div>
+      <div class="judge-score-row">
+        <div class="judge-score-track"><div class="judge-score-fill" style="width:${sConf}%;background:${sColor}"></div></div>
+        <span style="font-size:12px;font-family:monospace;min-width:32px">${sConf}%</span>
+      </div>
+      <div class="judge-feedback">${esc(d.supporter_feedback||'')}</div>
+    </div>
+    <div class="judge-section">
+      <div class="judge-section-label">Critic</div>
+      <div class="judge-score-row">
+        <div class="judge-score-track"><div class="judge-score-fill" style="width:${cConf}%;background:${cColor}"></div></div>
+        <span style="font-size:12px;font-family:monospace;min-width:32px">${cConf}%</span>
+      </div>
+      <div class="judge-feedback">${esc(d.critic_feedback||'')}</div>
+    </div>
+    <div class="judge-section">
+      <div class="judge-section-label">Verdict</div>
+      <div class="judge-verdict">${esc(d.verdict||'')}</div>
+    </div>
+  `;
+}
+
+function closeJudge(){
+  document.getElementById('judgeModal').classList.remove('open');
 }
 
 function appendQuestion(c,text){

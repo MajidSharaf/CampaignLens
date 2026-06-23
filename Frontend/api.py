@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 from NEO4j.router import run_router
 from analysis import load_analysis
+from debate import run_debate, run_judge
 
 load_dotenv()
 
@@ -60,6 +61,15 @@ class PipelineRunRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str
+
+class DebateRequest(BaseModel):
+    topic: str
+    rounds: int = 3
+
+class JudgeRequest(BaseModel):
+    question: str
+    supporter_response: str
+    critic_response: str
 
 class ChatResponse(BaseModel):
     persona: str
@@ -362,6 +372,29 @@ def chat_critic(req: ChatRequest):
         uncertain=bool(result.get("uncertain", False)),
         sources=result.get("sources", []),
         route=result.get("route", "rag"),
+    )
+
+
+@app.get("/boxing")
+def boxing_page():
+    return FileResponse("static/boxing.html")
+
+@app.post("/api/debate")
+def api_debate(req: DebateRequest):
+    if not req.topic.strip():
+        raise HTTPException(status_code=400, detail="Topic cannot be empty.")
+    if not (1 <= req.rounds <= 5):
+        raise HTTPException(status_code=400, detail="Rounds must be between 1 and 5.")
+    return run_debate(topic=req.topic, rounds=req.rounds)
+
+@app.post("/api/judge")
+def api_judge(req: JudgeRequest):
+    if not req.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    return run_judge(
+        question=req.question,
+        supporter_response=req.supporter_response,
+        critic_response=req.critic_response,
     )
 
 

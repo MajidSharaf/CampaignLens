@@ -127,6 +127,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .metric-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .mn-blue{color:var(--blue)}.mn-red{color:var(--red)}.mn-green{color:var(--green)}
 
+.an-subtabs{display:flex;gap:2px;margin-bottom:1.75rem;border-bottom:1px solid var(--border);padding-bottom:0}
+.an-subtab{height:34px;padding:0 1rem;border:none;background:none;color:var(--muted);font-size:13px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:5px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
+.an-subtab:hover{color:var(--text)}
+.an-subtab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.an-subpanel{display:none}.an-subpanel.active{display:block}
 .an-section{margin-bottom:3rem}
 .section-head{display:flex;align-items:baseline;gap:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
 .section-title{font-size:.95rem;font-weight:700}
@@ -409,54 +414,15 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     <div class="health-header">
       <div class="health-title-block">
         <div class="an-eyebrow">Evaluation</div>
-        <div class="an-title">Judge</div>
+        <div class="an-title">Judge History</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <span class="last-checked" id="judgeChecked"></span>
+        <button class="refresh-btn" onclick="loadJudgeHistory()"><i class="ti ti-refresh"></i> Refresh</button>
       </div>
     </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
-      <div style="display:flex;flex-direction:column;gap:.5rem">
-        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Question</label>
-        <textarea id="j-question" rows="3" placeholder="What do people think about Trump's economy?" style="border:1px solid var(--border);padding:.5rem .75rem;font-family:inherit;font-size:13px;resize:vertical;outline:none;width:100%"></textarea>
-      </div>
-      <div></div>
-      <div style="display:flex;flex-direction:column;gap:.5rem">
-        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue)">Supporter Response</label>
-        <textarea id="j-supporter" rows="5" placeholder="Paste the supporter chatbot's response…" style="border:1px solid var(--blue-border);padding:.5rem .75rem;font-family:inherit;font-size:13px;resize:vertical;outline:none;width:100%"></textarea>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:.5rem">
-        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red)">Critic Response</label>
-        <textarea id="j-critic" rows="5" placeholder="Paste the critic chatbot's response…" style="border:1px solid var(--red-border);padding:.5rem .75rem;font-family:inherit;font-size:13px;resize:vertical;outline:none;width:100%"></textarea>
-      </div>
-    </div>
-
-    <button onclick="runJudge()" id="j-btn" style="height:36px;padding:0 1.25rem;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;margin-bottom:1.5rem">
-      <i class="ti ti-gavel"></i> Judge
-    </button>
-
-    <div id="j-result" style="display:none">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
-        <div class="eval-card">
-          <div class="eval-card-title" style="color:var(--blue)">Supporter</div>
-          <div style="display:flex;align-items:center;gap:8px;margin:.5rem 0">
-            <div class="eval-bar-track" style="flex:1"><div class="eval-bar-fill" id="j-s-bar" style="background:var(--blue)"></div></div>
-            <span id="j-s-score" style="font-size:12px;font-family:monospace;min-width:32px"></span>
-          </div>
-          <div id="j-s-feedback" style="font-size:13px;line-height:1.55;color:var(--text)"></div>
-        </div>
-        <div class="eval-card">
-          <div class="eval-card-title" style="color:var(--red)">Critic</div>
-          <div style="display:flex;align-items:center;gap:8px;margin:.5rem 0">
-            <div class="eval-bar-track" style="flex:1"><div class="eval-bar-fill" id="j-c-bar" style="background:var(--red)"></div></div>
-            <span id="j-c-score" style="font-size:12px;font-family:monospace;min-width:32px"></span>
-          </div>
-          <div id="j-c-feedback" style="font-size:13px;line-height:1.55;color:var(--text)"></div>
-        </div>
-      </div>
-      <div class="eval-card" style="border-left:3px solid var(--border)">
-        <div class="eval-card-title">Verdict</div>
-        <div id="j-verdict" style="font-size:13px;line-height:1.6;color:var(--text);margin-top:.25rem"></div>
-      </div>
-    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1.5rem">Every exchange where both chatbots answered the same question is automatically evaluated here.</p>
+    <div id="judgeHistoryWrap"></div>
   </div>
 </div>
 
@@ -490,7 +456,7 @@ function switchTab(name,btn){
   btn.classList.add('active');
   if(name==='analysis'&&!analysisLoaded)loadAnalysis();
   if(name==='health')loadHealth();
-  if(name==='judge'){}
+  if(name==='judge') loadJudgeHistory();
 }
 
 /* ════════════════════════════════════
@@ -637,11 +603,23 @@ function renderAnalysis(d){
       <div class="metric"><div class="metric-num mn-red">${fmt(d.sentiment.roberta.anti)}</div><div class="metric-label">Anti</div></div>
       <div class="metric"><div class="metric-num">${fmt(d.sentiment.roberta.neutral)}</div><div class="metric-label">Neutral</div></div>
     </div>
-    ${renderSentiment(d,total)}
-    ${renderKeywords(d)}
-    ${renderNER(d)}
-    ${renderTopics(d)}
+    <div class="an-subtabs">
+      <button class="an-subtab active" onclick="switchAnTab('sentiment',this)"><i class="ti ti-chart-bar"></i> Sentiment</button>
+      <button class="an-subtab" onclick="switchAnTab('topics',this)"><i class="ti ti-topology-star-3"></i> Topic Modeling</button>
+      <button class="an-subtab" onclick="switchAnTab('keywords',this)"><i class="ti ti-tags"></i> Keywords</button>
+      <button class="an-subtab" onclick="switchAnTab('ner',this)"><i class="ti ti-map-pin"></i> NER</button>
+    </div>
+    <div id="an-panel-sentiment" class="an-subpanel active">${renderSentiment(d,total)}</div>
+    <div id="an-panel-topics"    class="an-subpanel">${renderTopics(d)}</div>
+    <div id="an-panel-keywords"  class="an-subpanel">${renderKeywords(d)}</div>
+    <div id="an-panel-ner"       class="an-subpanel">${renderNER(d)}</div>
   `;
+}
+function switchAnTab(name,btn){
+  document.querySelectorAll('.an-subtab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.an-subpanel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('an-panel-'+name).classList.add('active');
 }
 function renderSentiment(d){
   const s=d.sentiment.roberta;
@@ -828,39 +806,57 @@ function renderHealth(d){
 }
 
 /* ════════════════════════════════════
-   JUDGE
+   JUDGE HISTORY
 ════════════════════════════════════ */
-async function runJudge(){
-  const q = document.getElementById('j-question').value.trim();
-  const s = document.getElementById('j-supporter').value.trim();
-  const c = document.getElementById('j-critic').value.trim();
-  if(!q||!s||!c){alert('Fill in all three fields.');return;}
-
-  const btn = document.getElementById('j-btn');
-  btn.disabled=true;
-  btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Judging…';
-  document.getElementById('j-result').style.display='none';
-
+async function loadJudgeHistory(){
+  const wrap = document.getElementById('judgeHistoryWrap');
+  const checked = document.getElementById('judgeChecked');
   try{
-    const res = await fetch('/api/judge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,supporter_response:s,critic_response:c})});
-    const d = await res.json();
-    const sc = Math.round((d.supporter_score||0)*100);
-    const cc = Math.round((d.critic_score||0)*100);
-    document.getElementById('j-s-bar').style.width=sc+'%';
-    document.getElementById('j-s-score').textContent=sc+'%';
-    document.getElementById('j-s-feedback').textContent=d.supporter_feedback||'';
-    document.getElementById('j-c-bar').style.width=cc+'%';
-    document.getElementById('j-c-score').textContent=cc+'%';
-    document.getElementById('j-c-feedback').textContent=d.critic_feedback||'';
-    document.getElementById('j-verdict').textContent=d.verdict||'';
-    document.getElementById('j-result').style.display='block';
+    const res = await fetch('/api/judge/history');
+    const items = await res.json();
+    checked.textContent = 'Updated '+new Date().toLocaleTimeString();
+    if(!items.length){
+      wrap.innerHTML='<p style="font-size:13px;color:var(--muted);text-align:center;padding:2rem 0">No exchanges judged yet — chat with both bots first.</p>';
+      return;
+    }
+    wrap.innerHTML = items.map(entry=>{
+      const sc = Math.round((entry.supporter_score||0)*100);
+      const cc = Math.round((entry.critic_score||0)*100);
+      const ts = entry.timestamp ? new Date(entry.timestamp*1000).toLocaleString() : '';
+      return `<div style="border:1px solid var(--border);margin-bottom:1rem;padding:1rem">
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">${esc(ts)}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text);flex:1">${esc(entry.question)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+          <div class="eval-card">
+            <div class="eval-card-title" style="color:var(--blue)">Supporter <span style="font-weight:400;color:var(--muted)">(${sc}%)</span></div>
+            <div class="eval-bar-track" style="margin:.4rem 0"><div class="eval-bar-fill" style="width:${sc}%;background:var(--blue)"></div></div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:.35rem">${esc(entry.supporter_feedback||'')}</div>
+            <div style="font-size:12px;color:var(--text);border-left:2px solid var(--blue-border);padding-left:.5rem;line-height:1.5">${esc(entry.supporter_response||'')}</div>
+          </div>
+          <div class="eval-card">
+            <div class="eval-card-title" style="color:var(--red)">Critic <span style="font-weight:400;color:var(--muted)">(${cc}%)</span></div>
+            <div class="eval-bar-track" style="margin:.4rem 0"><div class="eval-bar-fill" style="width:${cc}%;background:var(--red)"></div></div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:.35rem">${esc(entry.critic_feedback||'')}</div>
+            <div style="font-size:12px;color:var(--text);border-left:2px solid var(--red-border);padding-left:.5rem;line-height:1.5">${esc(entry.critic_response||'')}</div>
+          </div>
+        </div>
+        <div class="eval-card" style="border-left:3px solid var(--border)">
+          <div class="eval-card-title">Verdict</div>
+          <div style="font-size:13px;line-height:1.6;color:var(--text);margin-top:.25rem">${esc(entry.verdict||'')}</div>
+        </div>
+      </div>`;
+    }).join('');
   }catch(e){
-    alert('Judge error: '+e);
+    wrap.innerHTML=`<p style="font-size:13px;color:var(--red)">Could not load judge history: ${esc(String(e))}</p>`;
   }
-
-  btn.disabled=false;
-  btn.innerHTML='<i class="ti ti-gavel"></i> Judge';
 }
+
+// Auto-refresh judge history every 15s when tab is visible
+setInterval(()=>{
+  if(document.getElementById('panel-judge').style.display!=='none') loadJudgeHistory();
+}, 15000);
 
 /* ── utils ── */
 function div(cls){const d=document.createElement('div');d.className=cls;return d;}

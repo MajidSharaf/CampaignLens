@@ -84,7 +84,7 @@ def buildTfidfKeywords(texts, top_n=5):
     For each document, return the top_n terms by TF-IDF score as a JSON list.
     Returns a list of JSON strings, one per document.
     """
-    tfidf = TfidfVectorizer(max_features=5000, ngram_range=(1, 2), min_df=2)
+    tfidf = TfidfVectorizer(max_features=5000, ngram_range=(1, 2), min_df=2, stop_words='english')
     matrix = tfidf.fit_transform(texts)
     feature_names = np.array(tfidf.get_feature_names_out())
 
@@ -109,7 +109,7 @@ def runLda(comments, n_topics=10):
     if len(comments) < n_topics:
         n_topics = max(2, len(comments) // 2) if len(comments) > 1 else 1
 
-    vect = CountVectorizer(max_features=1000, max_df=0.5)
+    vect = CountVectorizer(max_features=1000, max_df=0.5, stop_words='english')
     X = vect.fit_transform(comments)
 
     lda = LatentDirichletAllocation(

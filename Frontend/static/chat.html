@@ -158,22 +158,6 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
   </label>
 </div>
 
-<!-- Judge bar — appears when both sides have answered the same question -->
-<div class="judge-bar" id="judgeBar">
-  <i class="ti ti-gavel" style="color:var(--muted);font-size:14px"></i>
-  <span class="judge-q" id="judgeQ"></span>
-  <button class="judge-btn" id="judgeBtn" onclick="callJudge()">
-    <i class="ti ti-gavel"></i> Judge this exchange
-  </button>
-</div>
-
-<!-- Judge result modal -->
-<div class="judge-modal-wrap" id="judgeModal">
-  <div class="judge-modal">
-    <h2><i class="ti ti-gavel"></i> Judge's Verdict <button class="judge-close" onclick="closeJudge()">×</button></h2>
-    <div id="judgeContent"></div>
-  </div>
-</div>
 
 <div class="panels">
 
@@ -303,10 +287,8 @@ async function send(persona){
     const data=await res.json();
     typingEl.remove();
     appendAnswer(container,persona,data);
-    // track for judge
-    _judge[persona] = data.response || '';
-    if(_judge.question !== q){ _judge.question = q; _judge.supporter = null; _judge.critic = null; _judge[persona] = data.response || ''; }
-    if(_judge.supporter && _judge.critic){ showJudgeBar(q); }
+    // auto-log for judge
+    fetch('/api/judge/auto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({question:q, persona, response: data.response||''})}).catch(()=>{});
   }catch(err){
     typingEl.remove();
     appendError(container,persona);

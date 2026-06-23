@@ -40,6 +40,35 @@ _stats = {
     "low_confidence_questions": [],   # questions where confidence < 0.4
 }
 
+# ---------------------------------------------------------------------------
+# Judge history — auto-populated when both sides answer the same question
+# ---------------------------------------------------------------------------
+
+_judge_pending: dict = {}   # question -> {"supporter": str, "critic": str}
+_judge_history: list = []   # list of verdict dicts, newest last
+
+def _auto_judge(question: str):
+    """Called in a background thread when both sides have responded."""
+    pair = _judge_pending.get(question, {})
+    s_resp = pair.get("supporter", "")
+    c_resp = pair.get("critic", "")
+    if not s_resp or not c_resp:
+        return
+    try:
+        verdict = run_judge(question=question, supporter_response=s_resp, critic_response=c_resp)
+        _judge_history.append({
+            "timestamp": int(time.time()),
+            "question": question,
+            "supporter_response": s_resp,
+            "critic_response": c_resp,
+            **verdict,
+        })
+    except Exception as e:
+        print(f"[judge] auto-judge failed: {e}")
+    finally:
+        _judge_pending.pop(question, None)
+
+
 def _record(persona: str, result: dict, elapsed_ms: float):
     _stats["total_queries"] += 1
     _stats[f"{persona}_queries"] += 1
@@ -70,6 +99,11 @@ class JudgeRequest(BaseModel):
     question: str
     supporter_response: str
     critic_response: str
+
+class JudgeLogRequest(BaseModel):
+    question: str
+    persona: str   # "supporter" or "critic"
+    response: str
 
 class ChatResponse(BaseModel):
     persona: str
@@ -374,6 +408,24 @@ def chat_critic(req: ChatRequest):
         route=result.get("route", "rag"),
     )
 
+
+@app.post("/api/judge/auto")
+def api_judge_auto(req: JudgeLogRequest):
+    """Log one side's response. When both sides exist for the same question, run judge."""
+    if req.persona not in ("supporter", "critic"):
+        raise HTTPException(status_code=400, detail="persona must be supporter or critic")
+    q = req.question.strip()
+    if q not in _judge_pending:
+        _judge_pending[q] = {}
+    _judge_pending[q][req.persona] = req.response
+    if "supporter" in _judge_pending[q] and "critic" in _judge_pending[q]:
+        threading.Thread(target=_auto_judge, args=(q,), daemon=True).start()
+        return {"status": "judging"}
+    return {"status": "waiting"}
+
+@app.get("/api/judge/history")
+def api_judge_history():
+    return list(reversed(_judge_history))  # newest first
 
 @app.get("/boxing")
 def boxing_page():

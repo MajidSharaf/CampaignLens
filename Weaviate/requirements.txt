@@ -1,4 +1,5 @@
 dspy-ai
 langchain-ollama
 pandas
+pyarrow
 weaviate-client

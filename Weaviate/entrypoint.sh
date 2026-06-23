@@ -8,24 +8,29 @@ until curl -s http://ollama:11434/api/tags > /dev/null 2>&1; do
 done
 echo "Ollama ready"
 
-# Pull model only if not already cached
-if curl -s http://ollama:11434/api/tags | grep -q '"embeddinggemma"'; then
-    echo "embeddinggemma already cached, skipping pull"
-else
-    echo "Pulling embeddinggemma model..."
+pull_model() {
+    local name=$1
+    if curl -s http://ollama:11434/api/tags | grep -q "\"$name\""; then
+        echo "$name already cached, skipping pull"
+        return
+    fi
+    echo "Pulling $name model..."
     while true; do
         status=$(curl -s -X POST http://ollama:11434/api/pull \
             -H "Content-Type: application/json" \
-            -d '{"name":"embeddinggemma"}' | tail -1)
+            -d "{\"name\":\"$name\"}" | tail -1)
         echo "Pull status: $status"
         if echo "$status" | grep -q '"status":"success"'; then
-            echo "Model pull complete"
+            echo "$name pull complete"
             break
         fi
         echo "Pull not confirmed, retrying in 5s..."
         sleep 5
     done
-fi
+}
+
+pull_model embeddinggemma
+pull_model qwen2.5:0.5b
 
 # Verify the model can actually run before kicking off embedding
 echo "Verifying model is loadable..."

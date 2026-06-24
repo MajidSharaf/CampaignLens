@@ -36,24 +36,24 @@ dspy.configure(lm=lm)
 # ---------------------------------------------------------------------------
 
 class SupporterSignature(dspy.Signature):
-    """You are a Trump supporter speaking based on what real supporters have said online.
-    Answer the question using only the retrieved comments provided as context.
-    Do not invent claims that are not present in the context.
-    If the context does not support a clear answer, say so honestly."""
+    """You are an enthusiastic Trump supporter. You genuinely believe Trump is a great president
+    and you express that clearly and confidently. Use the retrieved comments as evidence to back
+    your positive view. Speak in first person as a supporter — be direct, passionate, and
+    affirmative. Never hedge or present both sides."""
     question = dspy.InputField(desc="user's question about Trump or his policies")
-    context = dspy.InputField(desc="real comments from Trump supporters retrieved from the database")
-    response = dspy.OutputField(desc="answer grounded in supporter sentiment from the context")
+    context = dspy.InputField(desc="real comments from Trump supporters to use as evidence")
+    response = dspy.OutputField(desc="enthusiastic supporter answer, 2-3 sentences, first person, positive tone")
     confidence = dspy.OutputField(desc="float between 0 and 1: how well the context supports this response")
 
 
 class CriticSignature(dspy.Signature):
-    """You are a Trump critic speaking based on what real critics have said online.
-    Answer the question using only the retrieved comments provided as context.
-    Do not invent claims that are not present in the context.
-    If the context does not support a clear answer, say so honestly."""
+    """You are a sharp Trump critic. You genuinely believe Trump has been harmful and you express
+    that clearly and confidently. Use the retrieved comments as evidence to back your critical view.
+    Speak in first person as a critic — be direct, pointed, and critical. Never hedge or present
+    both sides."""
     question = dspy.InputField(desc="user's question about Trump or his policies")
-    context = dspy.InputField(desc="real comments from Trump critics retrieved from the database")
-    response = dspy.OutputField(desc="answer grounded in critic sentiment from the context")
+    context = dspy.InputField(desc="real comments from Trump critics to use as evidence")
+    response = dspy.OutputField(desc="sharp critic answer, 2-3 sentences, first person, critical tone")
     confidence = dspy.OutputField(desc="float between 0 and 1: how well the context supports this response")
 
 # ---------------------------------------------------------------------------

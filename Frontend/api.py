@@ -7,15 +7,16 @@ import shutil
 import subprocess
 import threading
 import httpx
+import json as _json
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from NEO4j.router import run_router
 from analysis import load_analysis
-from debate import run_debate, run_judge
+from debate import run_debate, run_judge, stream_debate
 
 load_dotenv()
 
@@ -443,6 +444,18 @@ def api_debate(req: DebateRequest):
         raise HTTPException(status_code=400, detail="Rounds must be between 1 and 5.")
     return run_debate(topic=req.topic, rounds=req.rounds)
 
+@app.post("/api/debate/stream")
+def api_debate_stream(req: DebateRequest):
+    if not req.topic.strip():
+        raise HTTPException(status_code=400, detail="Topic cannot be empty.")
+    if not (1 <= req.rounds <= 5):
+        raise HTTPException(status_code=400, detail="Rounds must be between 1 and 5.")
+    def generate():
+        for entry in stream_debate(topic=req.topic, rounds=req.rounds):
+            yield f"data: {_json.dumps(entry)}\n\n"
+        yield "data: [DONE]\n\n"
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
 @app.post("/api/judge")
 def api_judge(req: JudgeRequest):
     if not req.question.strip():
@@ -460,16 +473,17 @@ def api_label_topic(req: TopicLabelRequest):
     from debate import lm
     import dspy
 
-    words_str = ", ".join(req.words[:8])
-    ctx = f" from {req.sentiment} comments" if req.sentiment else ""
+    words_str = ", ".join(req.words[:6])
     prompt = (
-        f"Given these top words from a topic{ctx}: [{words_str}]\n"
-        "Generate a short 2-4 word descriptive label that captures the theme. "
-        "Reply with ONLY the label, nothing else."
+        f"Words: {words_str}\n"
+        f"Write a 2-3 word topic label for these words. Examples: 'Trade Policy', 'Religious Support', 'Election Fraud'. "
+        f"Reply with ONLY the label."
     )
     with dspy.context(lm=lm):
         result = lm(messages=[{"role": "user", "content": prompt}])
-    label = (result[0] if isinstance(result, list) else str(result)).strip().strip('"').strip("'")
+    raw = (result[0] if isinstance(result, list) else str(result)).strip().strip('"').strip("'")
+    # take only the first line in case model adds explanation
+    label = raw.split("\n")[0].strip()[:40]
     return {"label": label}
 
 

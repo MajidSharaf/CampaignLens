@@ -121,29 +121,50 @@ async function startDebate() {
 
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Fighting…';
-
   ring.innerHTML = '<style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
 
-  // show placeholder cards while loading
+  // Pre-build round rows with two typing placeholders each
+  const rows = {};
   for (let r = 1; r <= rounds; r++) {
     ring.appendChild(roundHeader(r));
     const row = document.createElement('div');
     row.className = 'statement';
+    row.id = 'row-' + r;
     row.innerHTML = `
-      <div class="typing-card"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-      <div class="typing-card"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+      <div class="typing-card" id="card-critic-${r}"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="typing-card" id="card-supporter-${r}"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
     ring.appendChild(row);
+    rows[r] = row;
   }
 
   try {
-    const res = await fetch('/api/debate', {
+    const res = await fetch('/api/debate/stream', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({topic, rounds})
     });
     if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    renderDebate(data);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {stream: true});
+      const lines = buf.split('\n');
+      buf = lines.pop(); // keep incomplete line
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') break;
+        const entry = JSON.parse(payload);
+        const placeholder = document.getElementById(`card-${entry.persona}-${entry.round}`);
+        if (placeholder) placeholder.replaceWith(makeCard(entry.persona, entry));
+        ring.scrollTop = ring.scrollHeight;
+      }
+    }
   } catch(e) {
     ring.innerHTML = `<div class="empty"><strong>Error</strong><p>${esc(String(e))}</p></div>`;
   }
@@ -167,8 +188,9 @@ function renderDebate(data) {
     ring.appendChild(roundHeader(parseInt(r)));
     const row = document.createElement('div');
     row.className = 'statement';
-    row.appendChild(makeCard('supporter', entries.supporter));
+    // critic attacks (left), supporter defends (right)
     row.appendChild(makeCard('critic', entries.critic));
+    row.appendChild(makeCard('supporter', entries.supporter));
     ring.appendChild(row);
   }
 

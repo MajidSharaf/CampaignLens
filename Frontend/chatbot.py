@@ -104,12 +104,7 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
     context, sources, _ = retrieve(collection, question, k=k, top_k=top_k)
 
     if not context:
-        return {
-            "response": "I couldn't find relevant comments to answer that question.",
-            "confidence": 0.0,
-            "sources": [],
-            "uncertain": True
-        }
+        context = "No specific comments were retrieved. Answer based on your persona's general perspective."
 
     # Step 2 — generate grounded response
     with dspy.context(lm=lm):

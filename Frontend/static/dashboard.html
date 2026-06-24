@@ -51,7 +51,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 /* ─────────────────────────────────────────────────────
    TAB 1: CHATBOTS
 ──────────────────────────────────────────────────────*/
-.chat-panels{display:grid;grid-template-columns:1fr 1fr;flex:1;overflow:hidden}
+.chat-panels{display:grid;grid-template-columns:1fr auto 1fr;flex:1;overflow:hidden}
+.boxing-divider{display:flex;flex-direction:column;align-items:center;justify-content:center;width:52px;background:var(--surface);border-left:1px solid var(--border);border-right:1px solid var(--border)}
+.boxing-btn{display:flex;flex-direction:column;align-items:center;gap:4px;text-decoration:none;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:.6rem .4rem;border:1px solid var(--border);background:var(--bg);transition:color .15s,border-color .15s,background .15s}
+.boxing-btn:hover{color:var(--blue);border-color:var(--blue);background:var(--blue-bg)}
+.boxing-btn i{font-size:18px}
 .chat-col{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
 .chat-col:last-child{border-right:none}
 
@@ -109,8 +113,12 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .send-btn:not(:disabled):hover{opacity:.82}
 
 .sync-strip{display:flex;align-items:center;gap:6px;padding:5px 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
-.sync-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;flex-shrink:0}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;flex-shrink:0;transition:background .2s}
 .sync-text{font-size:11px;color:var(--muted)}
+.sync-toggle{width:32px;height:18px;border-radius:9px;background:#22C55E;position:relative;transition:background .2s;flex-shrink:0}
+.sync-toggle.off{background:var(--border)}
+.sync-thumb{width:12px;height:12px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .2s}
+.sync-toggle.off .sync-thumb{left:17px}
 
 /* ─────────────────────────────────────────────────────
    TAB 2: ANALYSIS
@@ -279,7 +287,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   <div class="wordmark-wrap">
     <div class="wordmark">Campaign<span>Lens</span></div>
   </div>
-  <div class="pills" id="videoPills"></div>
+  <div class="pills" id="videoPills" style="display:none"></div>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('chatbots',this)" id="tab-chatbots">
@@ -302,8 +310,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <!-- ── TAB: CHATBOTS ── -->
 <div class="panel active" id="panel-chatbots">
   <div class="sync-strip">
-    <div class="sync-dot"></div>
-    <span class="sync-text">Type in either panel — both chatbots receive the same question simultaneously. Press Enter to send.</span>
+    <div class="sync-dot" id="syncDot"></div>
+    <span class="sync-text" id="syncText">Both inputs synced — type in either panel. Press Enter to send.</span>
+    <label class="sync-toggle-wrap" style="margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none">
+      <span style="font-size:11px;color:var(--muted)">Sync</span>
+      <div class="sync-toggle" id="syncToggle" onclick="toggleSync()" title="Toggle input sync">
+        <div class="sync-thumb"></div>
+      </div>
+    </label>
   </div>
   <div class="chat-panels">
 
@@ -324,6 +338,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
         <textarea id="inp-sup" placeholder="Ask a question…" oninput="syncTA(this,'inp-crit')" onkeydown="handleKey(event,'sup')"></textarea>
         <button class="send-btn" id="btn-sup" onclick="sendMsg('sup')" aria-label="Send"><i class="ti ti-arrow-up" aria-hidden="true"></i></button>
       </div>
+    </div>
+
+    <div class="boxing-divider">
+      <a href="/boxing" class="boxing-btn" title="Open Boxing debate"><i class="ti ti-boxing-glove"></i><span>Boxing</span></a>
     </div>
 
     <div class="chat-col crit">
@@ -446,7 +464,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 /* ── init ── */
 const ids=JSON.parse(sessionStorage.getItem('videoIds')||'[]');
 const pillsEl=document.getElementById('videoPills');
-ids.forEach(id=>{const p=document.createElement('div');p.className='pill';p.textContent=id;pillsEl.appendChild(p);});
+ids.forEach(id=>{const p=document.createElement('div');p.className='pill';p.innerHTML=`<span style="opacity:.5;margin-right:4px">YT</span>${id}`;pillsEl.appendChild(p);});
 
 /* ── tabs ── */
 function switchTab(name,btn){
@@ -463,16 +481,27 @@ function switchTab(name,btn){
    CHATBOT
 ════════════════════════════════════ */
 let syncing=false;
+let syncEnabled=true;
+function toggleSync(){
+  syncEnabled=!syncEnabled;
+  const tog=document.getElementById('syncToggle');
+  const dot=document.getElementById('syncDot');
+  const txt=document.getElementById('syncText');
+  tog.classList.toggle('off',!syncEnabled);
+  dot.style.background=syncEnabled?'#22C55E':'var(--border)';
+  txt.textContent=syncEnabled?'Both inputs synced — type in either panel. Press Enter to send.':'Independent inputs — each chatbot gets its own question.';
+  if(!syncEnabled){document.getElementById('inp-sup').value='';document.getElementById('inp-crit').value='';}
+}
 function syncTA(src,targetId){
-  if(!syncing){syncing=true;const t=document.getElementById(targetId);t.value=src.value;resizeTA(t);syncing=false;}
+  if(syncEnabled&&!syncing){syncing=true;const t=document.getElementById(targetId);t.value=src.value;resizeTA(t);syncing=false;}
   resizeTA(src);
 }
 function resizeTA(el){el.style.height='38px';el.style.height=Math.min(el.scrollHeight,110)+'px';}
 function handleKey(e,side){
   if(e.key==='Enter'&&!e.shiftKey){
     e.preventDefault();
-    sendMsg(side);
-    sendMsg(side==='sup'?'crit':'sup');
+    if(syncEnabled){sendMsg('sup');sendMsg('crit');}
+    else sendMsg(side);
   }
 }
 const PERSONA={'sup':'supporter','crit':'critic'};
@@ -489,6 +518,7 @@ async function sendMsg(side){
     const res=await fetch('/chat/'+PERSONA[side],{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
     const d=await res.json();
     typing.remove();appendA(box,side,d);
+    fetch('/api/judge/auto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,persona:PERSONA[side],response:d.response||''})}).catch(()=>{});
   }catch{typing.remove();appendErr(box);}
   btn.disabled=false;scrollDown(box);
 }
@@ -623,6 +653,7 @@ function switchAnTab(name,btn){
 }
 function renderSentiment(d){
   const s=d.sentiment.roberta;
+  const ex=d.sentiment.examples||{};
   const mx=Math.max(s.pro,s.anti,s.neutral)||1;
   const bars=[
     {key:'pro',   label:'Pro',     cls:'bf-pos'},
@@ -632,9 +663,25 @@ function renderSentiment(d){
     const n=s[key];const w=Math.round(n/mx*100);
     return `<div class="bar-row"><div class="bar-lbl">${label}</div><div class="bar-track"><div class="bar-fill ${cls}" style="width:${w}%"></div></div><div class="bar-count">${fmt(n)}</div></div>`;
   }).join('');
+
+  const exGroups=[
+    {key:'pro',     label:'Pro',     accent:'var(--blue)'},
+    {key:'anti',    label:'Anti',    accent:'var(--red)'},
+    {key:'neutral', label:'Neutral', accent:'var(--muted)'},
+  ].map(({key,label,accent})=>{
+    const comments=(ex[key]||[]);
+    if(!comments.length) return '';
+    const items=comments.map(c=>`<div style="padding:.55rem .75rem;font-size:12px;line-height:1.55;color:var(--text);border-left:2px solid ${accent};background:var(--surface);margin-bottom:4px">${esc(c)}</div>`).join('');
+    return `<div style="margin-bottom:1.25rem">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${accent};margin-bottom:.5rem">${label} examples</div>
+      ${items}
+    </div>`;
+  }).join('');
+
   return `<div class="an-section"><div class="section-head"><div class="section-title">Sentiment analysis</div><div class="section-sub">RoBERTa (cardiffnlp/twitter-roberta-base-sentiment) — Pro / Anti / Neutral</div></div>
-    <div class="sent-grid">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:start">
       <div class="model-card"><div class="model-name">RoBERTa — transformer-based</div><div class="bar-group">${bars}</div></div>
+      <div>${exGroups}</div>
     </div>
   </div>`;
 }
@@ -680,18 +727,41 @@ function filterNER(type,btn){
   document.querySelectorAll('#nerBars .ner-row').forEach(r=>{r.style.display=(type==='All'||r.dataset.type===type)?'grid':'none';});
 }
 function renderTopics(d){
-  function topicGroup(topics, label, colorClass){
-    if(!topics||!topics.length) return `<div class="topic-empty">No ${label} topics available.</div>`;
+  function topicGroup(topics, groupLabel, colorClass, sentiment){
+    if(!topics||!topics.length) return `<div class="topic-empty">No ${groupLabel} topics available.</div>`;
     const cards=topics.map(t=>{
       const words=t.words.map(w=>`<span class="word-tag">${w}</span>`).join('');
-      return `<div class="topic-card ${colorClass}"><div class="topic-meta"><div class="topic-id">Topic ${t.id+1}</div><div class="topic-wt">${t.weight_pct}%</div></div><div class="topic-words">${words}</div></div>`;
+      const uid=`topic-label-${sentiment}-${t.id}`;
+      return `<div class="topic-card ${colorClass}">
+        <div class="topic-meta">
+          <div>
+            <div class="topic-id">Topic ${t.id+1}</div>
+            <div class="topic-llm-label" id="${uid}" style="font-size:11px;font-weight:600;margin-top:2px;opacity:.6">…</div>
+          </div>
+          <div class="topic-wt">${t.weight_pct}%</div>
+        </div>
+        <div class="topic-words">${words}</div>
+      </div>`;
     }).join('');
-    return `<div class="topic-group-label ${colorClass}-label">${label} comments</div><div class="topics-grid">${cards}</div>`;
+    // kick off label fetches after render
+    setTimeout(()=>topics.forEach(t=>fetchTopicLabel(t.words, sentiment, `topic-label-${sentiment}-${t.id}`)), 0);
+    return `<div class="topic-group-label ${colorClass}-label">${groupLabel} comments</div><div class="topics-grid">${cards}</div>`;
   }
   return `<div class="an-section"><div class="section-head"><div class="section-title">Topic modeling</div><div class="section-sub">LDA — run separately on Pro and Anti comments</div></div>
-    ${topicGroup(d.topics.pro,'Pro','topic-pro')}
-    ${topicGroup(d.topics.anti,'Anti','topic-anti')}
+    ${topicGroup(d.topics.pro,'Pro','topic-pro','pro')}
+    ${topicGroup(d.topics.anti,'Anti','topic-anti','anti')}
   </div>`;
+}
+async function fetchTopicLabel(words, sentiment, elId){
+  try{
+    const res=await fetch('/api/label-topic',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({words,sentiment})});
+    const data=await res.json();
+    const el=document.getElementById(elId);
+    if(el&&data.label){el.textContent=data.label;el.style.opacity='1';}
+  }catch(e){
+    const el=document.getElementById(elId);
+    if(el) el.style.display='none';
+  }
 }
 
 /* ════════════════════════════════════

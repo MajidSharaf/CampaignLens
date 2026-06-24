@@ -105,6 +105,10 @@ class JudgeLogRequest(BaseModel):
     persona: str   # "supporter" or "critic"
     response: str
 
+class TopicLabelRequest(BaseModel):
+    words: list[str]
+    sentiment: str = ""  # "pro" or "anti", optional context
+
 class ChatResponse(BaseModel):
     persona: str
     question: str
@@ -448,6 +452,25 @@ def api_judge(req: JudgeRequest):
         supporter_response=req.supporter_response,
         critic_response=req.critic_response,
     )
+
+
+@app.post("/api/label-topic")
+def api_label_topic(req: TopicLabelRequest):
+    """Use the LLM to generate a short label for a topic given its top words."""
+    from debate import lm
+    import dspy
+
+    words_str = ", ".join(req.words[:8])
+    ctx = f" from {req.sentiment} comments" if req.sentiment else ""
+    prompt = (
+        f"Given these top words from a topic{ctx}: [{words_str}]\n"
+        "Generate a short 2-4 word descriptive label that captures the theme. "
+        "Reply with ONLY the label, nothing else."
+    )
+    with dspy.context(lm=lm):
+        result = lm(messages=[{"role": "user", "content": prompt}])
+    label = (result[0] if isinstance(result, list) else str(result)).strip().strip('"').strip("'")
+    return {"label": label}
 
 
 if __name__ == "__main__":

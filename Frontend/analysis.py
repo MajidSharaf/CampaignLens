@@ -134,6 +134,21 @@ def load_analysis():
         "anti":    top_keywords_for("Anti"),
     }
 
+    # ── Sentiment examples ────────────────────────────────────────────────
+    def sample_comments(label, n=5):
+        group = df[df["sentiment_label"] == label]["cleaned_text"]
+        # prefer mid-length comments (not too short, not too long)
+        filtered = group[group.str.len().between(30, 200)].drop_duplicates()
+        if len(filtered) >= n:
+            return filtered.sample(n, random_state=42).tolist()
+        return filtered.head(n).tolist()
+
+    sentiment["examples"] = {
+        "pro":     sample_comments("Pro"),
+        "anti":    sample_comments("Anti"),
+        "neutral": sample_comments("Neutral"),
+    }
+
     return {
         "total_comments": total,
         "sentiment": sentiment,

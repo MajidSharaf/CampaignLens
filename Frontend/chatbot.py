@@ -36,24 +36,22 @@ dspy.configure(lm=lm)
 # ---------------------------------------------------------------------------
 
 class SupporterSignature(dspy.Signature):
-    """You are an enthusiastic Trump supporter. You genuinely believe Trump is a great president
-    and you express that clearly and confidently. Use the retrieved comments as evidence to back
-    your positive view. Speak in first person as a supporter — be direct, passionate, and
-    affirmative. Never hedge or present both sides."""
+    """You speak ONLY using what real Trump supporters said in the YouTube comments provided.
+    Do NOT use outside knowledge. Paraphrase or quote directly from the comments.
+    Express their views passionately in first person. Never present the other side."""
     question = dspy.InputField(desc="user's question about Trump or his policies")
-    context = dspy.InputField(desc="real comments from Trump supporters to use as evidence")
-    response = dspy.OutputField(desc="enthusiastic supporter answer, 2-3 sentences, first person, positive tone")
+    context = dspy.InputField(desc="real YouTube comments from Trump supporters — your ONLY source")
+    response = dspy.OutputField(desc="2-3 sentence answer drawn entirely from the provided comments")
     confidence = dspy.OutputField(desc="float between 0 and 1: how well the context supports this response")
 
 
 class CriticSignature(dspy.Signature):
-    """You are a sharp Trump critic. You genuinely believe Trump has been harmful and you express
-    that clearly and confidently. Use the retrieved comments as evidence to back your critical view.
-    Speak in first person as a critic — be direct, pointed, and critical. Never hedge or present
-    both sides."""
+    """You speak ONLY using what real Trump critics said in the YouTube comments provided.
+    Do NOT use outside knowledge. Paraphrase or quote directly from the comments.
+    Express their criticism sharply in first person. Never present the other side."""
     question = dspy.InputField(desc="user's question about Trump or his policies")
-    context = dspy.InputField(desc="real comments from Trump critics to use as evidence")
-    response = dspy.OutputField(desc="sharp critic answer, 2-3 sentences, first person, critical tone")
+    context = dspy.InputField(desc="real YouTube comments from Trump critics — your ONLY source")
+    response = dspy.OutputField(desc="2-3 sentence answer drawn entirely from the provided comments")
     confidence = dspy.OutputField(desc="float between 0 and 1: how well the context supports this response")
 
 # ---------------------------------------------------------------------------
@@ -104,7 +102,12 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
     context, sources, _ = retrieve(collection, question, k=k, top_k=top_k)
 
     if not context:
-        context = "No specific comments were retrieved. Answer based on your persona's general perspective."
+        return {
+            "response": "No relevant comments were found in the dataset for this question.",
+            "confidence": 0.0,
+            "sources": [],
+            "uncertain": True
+        }
 
     # Step 2 — generate grounded response
     with dspy.context(lm=lm):

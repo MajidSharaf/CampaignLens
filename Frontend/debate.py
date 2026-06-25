@@ -29,16 +29,34 @@ dspy.configure(lm=lm)
 # ---------------------------------------------------------------------------
 
 class DebateRoundSignature(dspy.Signature):
-    """You are in a live debate. The critic attacks first, the supporter defends.
-    If you are the critic: open with a sharp attack on the topic, grounded in the comments.
-    If you are the supporter: directly counter what the critic just said, then defend your position.
-    Use only the retrieved comments as evidence. Be aggressive and opinionated — 2-3 sentences max."""
+    """You are in a live debate grounded ONLY in real YouTube comments provided below.
+    Do NOT use outside knowledge — every claim must come directly from the comments in context.
+    Paraphrase or quote what real people said. If you are the critic: attack using what critics said.
+    If you are the supporter: defend using what supporters said and rebut the opponent.
+    Be direct and opinionated. 2-3 sentences max."""
     topic = dspy.InputField(desc="the debate topic")
     persona = dspy.InputField(desc="your role: 'critic' (attacker) or 'supporter' (defender)")
     opponent_last = dspy.InputField(desc="what the opponent just said (empty for critic's opening attack)")
-    context = dspy.InputField(desc="retrieved comments supporting your position")
-    response = dspy.OutputField(desc="your sharp, opinionated debate statement grounded in the context")
+    context = dspy.InputField(desc="real YouTube comments you MUST use as your only evidence")
+    response = dspy.OutputField(desc="debate statement using only what real commenters said")
     confidence = dspy.OutputField(desc="float 0-1: how well the context supports your statement")
+
+
+def _debate_turn(persona: str, topic: str, opponent_last: str, context: str) -> tuple[str, float]:
+    """Call the LLM directly with a simple prompt to avoid structured output parsing issues."""
+    role = "Trump critic" if persona == "critic" else "Trump supporter"
+    rebut = f'\nThe opponent just said: "{opponent_last}"\nDirectly counter that, then make your point.' if opponent_last else ""
+    prompt = (
+        f"You are a {role} in a debate about: {topic}\n"
+        f"Use ONLY these real YouTube comments as evidence:\n{context}\n"
+        f"{rebut}\n"
+        f"Write 2-3 sharp sentences from the {role}'s perspective, grounded in those comments. "
+        f"Reply with ONLY your statement, nothing else."
+    )
+    with dspy.context(lm=lm):
+        result = lm(messages=[{"role": "user", "content": prompt}])
+    text = (result[0] if isinstance(result, list) else str(result)).strip()
+    return text, 0.8
 
 
 class JudgeSignature(dspy.Signature):
@@ -119,27 +137,15 @@ def stream_debate(topic: str, rounds: int = 3):
     for i in range(rounds):
         # Critic attacks
         context, sources, _ = retrieve(negative, f"{topic} {supporter_last}".strip(), k=10, top_k=5)
-        with dspy.context(lm=lm):
-            c_out = _debate_module(topic=topic, persona="critic", opponent_last=supporter_last,
-                                   context=context or "No relevant comments found.")
-        try:
-            c_conf = round(float(c_out.confidence), 2)
-        except (ValueError, TypeError):
-            c_conf = 0.0
-        critic_last = c_out.response
-        yield {"round": i + 1, "persona": "critic", "response": c_out.response, "confidence": c_conf, "sources": sources}
+        c_response, c_conf = _debate_turn("critic", topic, supporter_last, context or "No relevant comments found.")
+        critic_last = c_response
+        yield {"round": i + 1, "persona": "critic", "response": c_response, "confidence": c_conf, "sources": sources}
 
         # Supporter defends
         context, sources, _ = retrieve(positive, f"{topic} {critic_last}".strip(), k=10, top_k=5)
-        with dspy.context(lm=lm):
-            s_out = _debate_module(topic=topic, persona="supporter", opponent_last=critic_last,
-                                   context=context or "No relevant comments found.")
-        try:
-            s_conf = round(float(s_out.confidence), 2)
-        except (ValueError, TypeError):
-            s_conf = 0.0
-        supporter_last = s_out.response
-        yield {"round": i + 1, "persona": "supporter", "response": s_out.response, "confidence": s_conf, "sources": sources}
+        s_response, s_conf = _debate_turn("supporter", topic, critic_last, context or "No relevant comments found.")
+        supporter_last = s_response
+        yield {"round": i + 1, "persona": "supporter", "response": s_response, "confidence": s_conf, "sources": sources}
 
 
 def run_debate(topic: str, rounds: int = 3) -> dict:
@@ -171,52 +177,15 @@ def run_debate(topic: str, rounds: int = 3) -> dict:
         # --- Critic attacks first ---
         context, sources, _ = retrieve(negative, f"{topic} {supporter_last}".strip(), k=10, top_k=5)
 
-        with dspy.context(lm=lm):
-            c_out = _debate_module(
-                topic=topic,
-                persona="critic",
-                opponent_last=supporter_last,  # empty on round 1 → opening attack
-                context=context or "No relevant comments found.",
-            )
-
-        try:
-            c_conf = round(float(c_out.confidence), 2)
-        except (ValueError, TypeError):
-            c_conf = 0.0
-
-        critic_last = c_out.response
-        results.append({
-            "round": i + 1,
-            "persona": "critic",
-            "response": c_out.response,
-            "confidence": c_conf,
-            "sources": sources,
-        })
+        c_response, c_conf = _debate_turn("critic", topic, supporter_last, context or "No relevant comments found.")
+        critic_last = c_response
+        results.append({"round": i + 1, "persona": "critic", "response": c_response, "confidence": c_conf, "sources": sources})
 
         # --- Supporter defends ---
         context, sources, _ = retrieve(positive, f"{topic} {critic_last}".strip(), k=10, top_k=5)
-
-        with dspy.context(lm=lm):
-            s_out = _debate_module(
-                topic=topic,
-                persona="supporter",
-                opponent_last=critic_last,
-                context=context or "No relevant comments found.",
-            )
-
-        try:
-            s_conf = round(float(s_out.confidence), 2)
-        except (ValueError, TypeError):
-            s_conf = 0.0
-
-        supporter_last = s_out.response
-        results.append({
-            "round": i + 1,
-            "persona": "supporter",
-            "response": s_out.response,
-            "confidence": s_conf,
-            "sources": sources,
-        })
+        s_response, s_conf = _debate_turn("supporter", topic, critic_last, context or "No relevant comments found.")
+        supporter_last = s_response
+        results.append({"round": i + 1, "persona": "supporter", "response": s_response, "confidence": s_conf, "sources": sources})
 
     return {"topic": topic, "rounds": results}
 

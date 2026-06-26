@@ -3,7 +3,6 @@ import json
 import re
 import collections
 import pandas as pd
-from functools import lru_cache
 
 DATA_PATH = os.getenv("PIPELINE_DATA_PATH", "/app/pipeline_data")
 
@@ -17,7 +16,6 @@ def _is_noise(text: str) -> bool:
     return t in SKIP_TOKENS or len(t) <= 1 or bool(EMOJI_PATTERN.match(t))
 
 
-@lru_cache(maxsize=1)
 def load_analysis():
     path = os.path.join(DATA_PATH, "analysis_results.csv")
     if not os.path.exists(path):
@@ -70,9 +68,6 @@ def load_analysis():
     }
 
     # ── Topics ────────────────────────────────────────────────────────────
-    # LDA was run separately per sentiment group. The CSV has topic_id and
-    # topic_keywords per comment. Reconstruct topic summaries from the CSV
-    # so we avoid re-running LDA at runtime.
     topics = {"pro": [], "anti": []}
 
     for group_label, key in [("Pro", "pro"), ("Anti", "anti")]:
@@ -109,7 +104,6 @@ def load_analysis():
             if kw and len(kw) > 2:
                 keyword_counts[kw] += 1
 
-    # Top 40 overall, plus top 20 per sentiment group
     top_keywords = [{"text": k, "count": v}
                     for k, v in sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)[:40]]
 
@@ -137,7 +131,6 @@ def load_analysis():
     # ── Sentiment examples ────────────────────────────────────────────────
     def sample_comments(label, n=5):
         group = df[df["sentiment_label"] == label]["cleaned_text"]
-        # prefer mid-length comments (not too short, not too long)
         filtered = group[group.str.len().between(30, 200)].drop_duplicates()
         if len(filtered) >= n:
             return filtered.sample(n, random_state=42).tolist()

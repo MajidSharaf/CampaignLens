@@ -25,7 +25,13 @@ ollama_host = os.getenv("OLLAMA_HOST", "http://ollama:11434")
 embedder_dspy = dspy.Embedder("ollama/embeddinggemma", api_base=ollama_host)
 
 def getEmbedding(text):
-    return embedder_dspy(text)
+    result = embedder_dspy(text)
+    # dspy.Embedder returns shape (1, dim) for a single input; flatten to (dim,)
+    import numpy as np
+    arr = np.array(result)
+    if arr.ndim == 2:
+        arr = arr[0]
+    return arr.tolist()
 
 def embed_dataframe(df, text_column):
     df = df.copy()

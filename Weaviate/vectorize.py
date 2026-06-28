@@ -1,4 +1,5 @@
 import warnings
+import numpy as np
 import pandas as pd
 import weaviate
 from langchain_ollama import OllamaEmbeddings
@@ -116,7 +117,12 @@ def loadDataIntoCollection(df, collection_name, batch_size=10):
                 "video_id": str(row.get("video_id", "")),
                 "topic_id": int(row["topic_id"]) if pd.notna(row.get("topic_id")) else -1,
             }
-            batch.add_object(properties=object_, vector=row["embedding"])
+            vector = row["embedding"]
+            # Flatten (1, dim) → (dim,) in case embedding was stored as 2D
+            vec = np.array(vector)
+            if vec.ndim == 2:
+                vec = vec[0]
+            batch.add_object(properties=object_, vector=vec.tolist())
 
 
 # ---------------------------------------------------------------------------

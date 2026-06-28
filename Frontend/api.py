@@ -117,6 +117,7 @@ class ChatResponse(BaseModel):
     confidence: float
     uncertain: bool
     sources: list[str]
+    source_texts: list[str]
     route: str
 
 # ---------------------------------------------------------------------------
@@ -391,6 +392,7 @@ def chat_supporter(req: ChatRequest):
         confidence=float(result.get("confidence", 0.0)),
         uncertain=bool(result.get("uncertain", False)),
         sources=result.get("sources", []),
+        source_texts=result.get("source_texts", []),
         route=result.get("route", "rag"),
     )
 
@@ -410,6 +412,7 @@ def chat_critic(req: ChatRequest):
         confidence=float(result.get("confidence", 0.0)),
         uncertain=bool(result.get("uncertain", False)),
         sources=result.get("sources", []),
+        source_texts=result.get("source_texts", []),
         route=result.get("route", "rag"),
     )
 

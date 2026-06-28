@@ -74,6 +74,7 @@ class RouterState(TypedDict):
     response: str
     confidence: float
     sources: list
+    source_texts: list
     uncertain: bool
 
 # ---------------------------------------------------------------------------
@@ -128,6 +129,7 @@ def rag_node(state: RouterState):
         "response": result["response"],
         "confidence": result["confidence"],
         "sources": result["sources"],
+        "source_texts": result.get("source_texts", []),
         "uncertain": result["uncertain"]
     }
 
@@ -144,6 +146,7 @@ def graph_node(state: RouterState):
         "response": result["answer"],
         "confidence": result["confidence"],
         "sources": result["sources"],
+        "source_texts": [],
         "uncertain": result["uncertain"]
     }
 
@@ -208,6 +211,7 @@ def run_router(question: str, persona: str):
             "response": "",
             "confidence": 0.0,
             "sources": [],
+            "source_texts": [],
             "uncertain": False
         })
 
@@ -215,6 +219,7 @@ def run_router(question: str, persona: str):
         "response": result["response"],
         "confidence": result["confidence"],
         "sources": result["sources"],
+        "source_texts": result.get("source_texts", []),
         "uncertain": result["uncertain"],
         "route": result["route"]
     }

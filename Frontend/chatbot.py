@@ -99,7 +99,7 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
         dict with keys: response, confidence, sources, uncertain
     """
     # Step 1 — retrieve and rerank
-    context, sources, _ = retrieve(collection, question, k=k, top_k=top_k)
+    context, sources, reranked = retrieve(collection, question, k=k, top_k=top_k)
 
     if not context:
         return {
@@ -121,10 +121,13 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
 
     uncertain = confidence < CONFIDENCE_THRESHOLD
 
+    source_texts = [text for text, score, cid in reranked]
+
     return {
         "response": result.response,
         "confidence": round(confidence, 2),
         "sources": sources,
+        "source_texts": source_texts,
         "uncertain": uncertain
     }
 

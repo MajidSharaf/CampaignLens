@@ -78,8 +78,9 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
 .badge-uncertain{color:#92400E;background:#FFFBEB;border-color:#FDE68A}
 .sources-toggle{background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:2px;padding:0}
 .sources-toggle:hover{color:var(--text)}
-.sources-wrap{display:flex;flex-wrap:wrap;gap:4px;padding-top:2px}
-.src-tag{font-size:10px;font-family:"SF Mono","Fira Code",monospace;color:var(--muted);border:1px solid var(--border);padding:2px 6px;background:var(--surface)}
+.sources-wrap{display:flex;flex-direction:column;gap:6px;padding-top:4px}
+.src-comment{font-size:12px;line-height:1.5;color:var(--text);border-left:2px solid var(--border);padding:6px 10px;background:var(--surface);cursor:default}
+.src-comment-num{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:2px}
 
 /* typing */
 .typing-dots{display:flex;gap:4px;align-items:center;padding:0.75rem 1.1rem}
@@ -372,8 +373,12 @@ function appendAnswer(c,persona,data){
   const conf=Math.round((data.confidence||0)*100);
   const barColor=conf>=70?'#22C55E':conf>=40?'#F59E0B':'#EF4444';
   const srcId='s'+Date.now()+Math.random().toString(36).slice(2);
-  const srcs=data.sources||[];
-  const srcHtml=srcs.map(s=>`<span class="src-tag">${esc(s)}</span>`).join('');
+  const texts=data.source_texts||[];
+  const srcHtml=texts.map((t,i)=>`
+    <div class="src-comment">
+      <div class="src-comment-num">Comment ${i+1}</div>
+      ${esc(t)}
+    </div>`).join('');
 
   const e=document.createElement('div');
   e.className='entry';
@@ -386,9 +391,9 @@ function appendAnswer(c,persona,data){
       </span>
       <span class="badge badge-route">${esc(data.route||'rag')}</span>
       ${data.uncertain?'<span class="badge badge-uncertain">Low confidence</span>':''}
-      ${srcs.length?`<button class="sources-toggle" onclick="toggleSrc('${srcId}',this)">${srcs.length} source${srcs.length>1?'s':''}</button>`:''}
+      ${texts.length?`<button class="sources-toggle" onclick="toggleSrc('${srcId}',this)">View ${texts.length} source comment${texts.length>1?'s':''}</button>`:''}
     </div>
-    ${srcs.length?`<div class="sources-wrap" id="${srcId}" style="display:none">${srcHtml}</div>`:''}
+    ${texts.length?`<div class="sources-wrap" id="${srcId}" style="display:none">${srcHtml}</div>`:''}
   `;
   c.appendChild(e);
   scrollDown(c);

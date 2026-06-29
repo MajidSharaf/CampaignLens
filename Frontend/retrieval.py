@@ -42,8 +42,10 @@ def hybridRetrieval(collection, question, k=10, alpha=0.5):
         texts:  list of comment_text strings only
     """
     try:
+        query_vector = embeddings.embed_query(question)
         response = collection.query.hybrid(
             query=question,
+            vector=query_vector,
             alpha=alpha,
             limit=k,
             return_metadata=wq.MetadataQuery(score=True),

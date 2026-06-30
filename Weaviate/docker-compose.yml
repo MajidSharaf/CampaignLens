@@ -104,6 +104,7 @@ services:
       - ../Pipeline:/app/pipeline_data
       - ./dataset:/dataset
       - .:/app/weaviate_app:ro
+      - ../Frontend/static:/app/static
 
 volumes:
   weaviate_data:

@@ -306,7 +306,7 @@ def _run_pipeline(urls: list[str]):
         if r.returncode != 0:
             raise RuntimeError(r.stderr or r.stdout)
 
-        _pipeline.update({"status": "complete", "stage": "done"})
+        _pipeline.update({"status": "complete", "stage": "done", "last_run": int(time.time())})
     except Exception as e:
         _pipeline.update({"status": "error", "stage": "failed", "error": str(e)[:300]})
 

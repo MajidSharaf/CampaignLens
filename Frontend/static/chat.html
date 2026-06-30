@@ -33,7 +33,6 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
 .pill{font-size:11px;font-family:"SF Mono","Fira Code",monospace;color:var(--muted);border:1px solid var(--border);padding:2px 8px;background:var(--surface)}
 
 /* ─ panels ─ */
-.panels{display:grid;grid-template-columns:1fr 1fr;flex:1;overflow:hidden}
 .panel{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
 .panel:last-child{border-right:none}
 
@@ -122,17 +121,18 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
 .judge-close{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
 .judge-close:hover{color:var(--text)}
 
-/* sync bar */
-.sync-strip{display:flex;align-items:center;gap:8px;padding:6px 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
-.sync-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;flex-shrink:0;transition:background .2s}
-.sync-dot.off{background:#D1D5DB}
-.sync-text{font-size:11px;color:var(--muted)}
-.sync-toggle{margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
-.sync-toggle-label{font-size:11px;color:var(--muted)}
-.toggle-track{width:28px;height:16px;border-radius:8px;background:#22C55E;position:relative;transition:background .2s;flex-shrink:0}
-.toggle-track.off{background:#D1D5DB}
-.toggle-thumb{width:12px;height:12px;border-radius:50%;background:#fff;position:absolute;top:2px;left:14px;transition:left .2s}
-.toggle-thumb.off{left:2px}
+/* info strip */
+.info-strip{display:flex;align-items:center;gap:12px;padding:6px 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.info-text{font-size:11px;color:var(--muted)}
+.last-run{font-size:11px;color:var(--muted);margin-left:auto}
+.last-run span{font-weight:600;color:var(--text)}
+
+/* boxing divider button */
+.panels-wrap{display:grid;grid-template-columns:1fr 0 1fr;flex:1;overflow:hidden;position:relative}
+.boxing-divider{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;display:flex;flex-direction:column;align-items:center;gap:6px}
+.boxing-btn{display:flex;align-items:center;justify-content:center;width:40px;height:40px;background:var(--bg);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:18px;transition:color .15s,border-color .15s,box-shadow .15s;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.boxing-btn:hover{color:var(--text);border-color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.14)}
+.divider-line{width:1px;background:var(--border);flex:1;min-height:0}
 </style>
 </head>
 <body>
@@ -142,25 +142,17 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
   <div class="wordmark">Campaign<span>Lens</span></div>
   <div class="pills" id="videoPills"></div>
   <div style="display:flex;gap:1.25rem;margin-left:auto;align-items:center">
-    <a href="/boxing" style="font-size:12px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'"><i class="ti ti-boxing-glove" aria-hidden="true"></i> Boxing</a>
     <a href="/analysis" style="font-size:12px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'"><i class="ti ti-chart-bar" aria-hidden="true"></i> Analysis</a>
     <a href="/setup" style="font-size:12px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'"><i class="ti ti-terminal-2" aria-hidden="true"></i> Setup</a>
   </div>
 </nav>
 
-<div class="sync-strip">
-  <div class="sync-dot" id="syncDot"></div>
-  <span class="sync-text" id="syncText">Type in either panel — both chatbots receive the same question simultaneously</span>
-  <label class="sync-toggle" onclick="toggleSync()">
-    <span class="sync-toggle-label">Sync</span>
-    <div class="toggle-track" id="toggleTrack">
-      <div class="toggle-thumb" id="toggleThumb"></div>
-    </div>
-  </label>
+<div class="info-strip">
+  <span class="info-text">Independent inputs — each chatbot gets its own question</span>
+  <span class="last-run" id="lastRun"></span>
 </div>
 
-
-<div class="panels">
+<div class="panels-wrap">
 
   <div class="panel supporter" id="panelSupporter">
     <div class="panel-head">
@@ -178,11 +170,15 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
       </div>
     </div>
     <div class="input-bar">
-      <textarea id="inputSupporter" placeholder="Ask a question…" oninput="syncAndResize(this,'inputCritic')" onkeydown="handleKey(event,'supporter')"></textarea>
+      <textarea id="inputSupporter" placeholder="Ask a question…" oninput="resize(this)" onkeydown="handleKey(event,'supporter')"></textarea>
       <button class="send-btn" id="sendSupporter" onclick="send('supporter')" aria-label="Send">
         <i class="ti ti-arrow-up" aria-hidden="true"></i>
       </button>
     </div>
+  </div>
+
+  <div class="boxing-divider">
+    <a href="/boxing" class="boxing-btn" title="Boxing mode"><i class="ti ti-boxing-glove" aria-hidden="true"></i></a>
   </div>
 
   <div class="panel critic" id="panelCritic">
@@ -201,7 +197,7 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
       </div>
     </div>
     <div class="input-bar">
-      <textarea id="inputCritic" placeholder="Ask a question…" oninput="syncAndResize(this,'inputSupporter')" onkeydown="handleKey(event,'critic')"></textarea>
+      <textarea id="inputCritic" placeholder="Ask a question…" oninput="resize(this)" onkeydown="handleKey(event,'critic')"></textarea>
       <button class="send-btn" id="sendCritic" onclick="send('critic')" aria-label="Send">
         <i class="ti ti-arrow-up" aria-hidden="true"></i>
       </button>
@@ -220,35 +216,17 @@ ids.forEach(id=>{
   const p=document.createElement('div');p.className='pill';p.textContent=id;pillsEl.appendChild(p);
 });
 
-let syncEnabled=true;
-let syncing=false;
-
-function toggleSync(){
-  syncEnabled=!syncEnabled;
-  document.getElementById('toggleTrack').classList.toggle('off',!syncEnabled);
-  document.getElementById('toggleThumb').classList.toggle('off',!syncEnabled);
-  document.getElementById('syncDot').classList.toggle('off',!syncEnabled);
-  document.getElementById('syncText').textContent=syncEnabled
-    ?'Type in either panel — both chatbots receive the same question simultaneously'
-    :'Independent mode — each panel sends its own question';
-  if(!syncEnabled){
-    document.getElementById('inputCritic').value='';
-    document.getElementById('inputSupporter').value='';
-    resize(document.getElementById('inputCritic'));
-    resize(document.getElementById('inputSupporter'));
+// Load last pipeline run time
+fetch('/api/pipeline/status').then(r=>r.json()).then(d=>{
+  const el=document.getElementById('lastRun');
+  if(d.last_run){
+    const dt=new Date(d.last_run*1000);
+    el.innerHTML='Pipeline last ran: <span>'+dt.toLocaleString()+'</span>';
+  } else {
+    el.textContent='Pipeline not yet run';
   }
-}
+}).catch(()=>{});
 
-function syncAndResize(src,targetId){
-  if(syncEnabled&&!syncing){
-    syncing=true;
-    const t=document.getElementById(targetId);
-    t.value=src.value;
-    resize(t);
-    syncing=false;
-  }
-  resize(src);
-}
 function resize(el){
   el.style.height='38px';
   el.style.height=Math.min(el.scrollHeight,110)+'px';
@@ -256,13 +234,7 @@ function resize(el){
 function handleKey(e,persona){
   if(e.key==='Enter'&&!e.shiftKey){
     e.preventDefault();
-    if(syncEnabled){
-      const other=persona==='supporter'?'critic':'supporter';
-      send(persona);
-      send(other);
-    } else {
-      send(persona);
-    }
+    send(persona);
   }
 }
 

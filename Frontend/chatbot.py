@@ -36,23 +36,17 @@ dspy.configure(lm=lm)
 # ---------------------------------------------------------------------------
 
 class SupporterSignature(dspy.Signature):
-    """Summarize the provided comments in first person as if you are the person who wrote them.
-    The comments are from Trump supporters. Reflect what they said faithfully.
-    Do NOT add any opinion not present in the comments. Do NOT contradict the comments."""
-    question = dspy.InputField(desc="question being asked")
-    context = dspy.InputField(desc="YouTube comments from Trump supporters — paraphrase these directly")
-    response = dspy.OutputField(desc="2-3 sentences paraphrasing the comments in first person (I/we). Must reflect the positive sentiment in the comments.")
-    confidence = dspy.OutputField(desc="float 0-1: how well the comments answer the question")
+    """Rewrite the provided texts as a single first-person response. Use only what is in the texts."""
+    context = dspy.InputField(desc="texts to rewrite")
+    response = dspy.OutputField(desc="2-3 sentences in first person combining the texts. Start with I or We.")
+    confidence = dspy.OutputField(desc="float 0-1")
 
 
 class CriticSignature(dspy.Signature):
-    """Summarize the provided comments in first person as if you are the person who wrote them.
-    The comments are from people who oppose Trump. Reflect what they said faithfully.
-    Do NOT add any opinion not present in the comments. Do NOT contradict the comments."""
-    question = dspy.InputField(desc="question being asked")
-    context = dspy.InputField(desc="YouTube comments from Trump opponents — paraphrase these directly")
-    response = dspy.OutputField(desc="2-3 sentences paraphrasing the comments in first person (I/we). Must reflect the negative sentiment in the comments.")
-    confidence = dspy.OutputField(desc="float 0-1: how well the comments answer the question")
+    """Rewrite the provided texts as a single first-person response. Use only what is in the texts."""
+    context = dspy.InputField(desc="texts to rewrite")
+    response = dspy.OutputField(desc="2-3 sentences in first person combining the texts. Start with I or We.")
+    confidence = dspy.OutputField(desc="float 0-1")
 
 # ---------------------------------------------------------------------------
 # DSPy Modules
@@ -66,7 +60,7 @@ class SupporterChatbot(dspy.Module):
         self.generate = dspy.ChainOfThought(SupporterSignature)
 
     def forward(self, question, context):
-        return self.generate(question=question, context=context)
+        return self.generate(context=context)
 
 
 class CriticChatbot(dspy.Module):
@@ -75,7 +69,7 @@ class CriticChatbot(dspy.Module):
         self.generate = dspy.ChainOfThought(CriticSignature)
 
     def forward(self, question, context):
-        return self.generate(question=question, context=context)
+        return self.generate(context=context)
 
 
 # ---------------------------------------------------------------------------

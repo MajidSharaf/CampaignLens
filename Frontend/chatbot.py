@@ -36,23 +36,23 @@ dspy.configure(lm=lm)
 # ---------------------------------------------------------------------------
 
 class SupporterSignature(dspy.Signature):
-    """You are roleplaying as a Trump supporter based ONLY on the YouTube comments provided.
-    Speak in first person as if you wrote those comments. Use 'I' and 'we'.
-    Only use what is in the comments. Do not add outside knowledge."""
-    question = dspy.InputField(desc="question about Trump or his policies")
-    context = dspy.InputField(desc="real YouTube comments from Trump supporters — your ONLY source")
-    response = dspy.OutputField(desc="2-3 sentences in first person, drawn entirely from the provided comments. Start with 'I' or 'We'.")
-    confidence = dspy.OutputField(desc="float between 0 and 1: how well the context supports this response")
+    """Summarize the provided comments in first person as if you are the person who wrote them.
+    The comments are from Trump supporters. Reflect what they said faithfully.
+    Do NOT add any opinion not present in the comments. Do NOT contradict the comments."""
+    question = dspy.InputField(desc="question being asked")
+    context = dspy.InputField(desc="YouTube comments from Trump supporters — paraphrase these directly")
+    response = dspy.OutputField(desc="2-3 sentences paraphrasing the comments in first person (I/we). Must reflect the positive sentiment in the comments.")
+    confidence = dspy.OutputField(desc="float 0-1: how well the comments answer the question")
 
 
 class CriticSignature(dspy.Signature):
-    """You are roleplaying as a person who disagrees with Trump based ONLY on the YouTube comments provided.
-    Speak in first person as if you wrote those comments. Use 'I' and 'we'.
-    Only use what is in the comments. Do not add outside knowledge."""
-    question = dspy.InputField(desc="question about Trump or his policies")
-    context = dspy.InputField(desc="real YouTube comments from people who disagree with Trump — your ONLY source")
-    response = dspy.OutputField(desc="2-3 sentences in first person, drawn entirely from the provided comments. Start with 'I' or 'We'.")
-    confidence = dspy.OutputField(desc="float between 0 and 1: how well the context supports this response")
+    """Summarize the provided comments in first person as if you are the person who wrote them.
+    The comments are from people who oppose Trump. Reflect what they said faithfully.
+    Do NOT add any opinion not present in the comments. Do NOT contradict the comments."""
+    question = dspy.InputField(desc="question being asked")
+    context = dspy.InputField(desc="YouTube comments from Trump opponents — paraphrase these directly")
+    response = dspy.OutputField(desc="2-3 sentences paraphrasing the comments in first person (I/we). Must reflect the negative sentiment in the comments.")
+    confidence = dspy.OutputField(desc="float 0-1: how well the comments answer the question")
 
 # ---------------------------------------------------------------------------
 # DSPy Modules

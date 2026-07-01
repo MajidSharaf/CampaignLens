@@ -1,3 +1,4 @@
+cat > /app/chatbot.py << 'ENDOFFILE'
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -13,12 +14,6 @@ mlflow.dspy.autolog()
 
 load_dotenv()
 
-# ---------------------------------------------------------------------------
-# DSPy LM setup
-# Same model instance for both chatbots.
-# Differentiation comes from the signature + retrieved context, not the weights.
-# ---------------------------------------------------------------------------
-
 lm = dspy.LM(
     f"ollama/{os.getenv('OLLAMA_MODEL', 'qwen2.5:0.5b')}",
     api_base=os.getenv("OLLAMA_URL", "http://ollama:11434"),
@@ -28,31 +23,27 @@ lm = dspy.LM(
 )
 dspy.configure(lm=lm)
 
-# ---------------------------------------------------------------------------
-# DSPy Signatures
-# The docstring is the system instruction DSPy optimizes.
-# confidence forces the model to self-assess how well the context supports
-# the response — anything below 0.6 gets flagged as uncertain.
-# ---------------------------------------------------------------------------
-
 class SupporterSignature(dspy.Signature):
-    """Rewrite the provided texts as a single first-person response. Use only what is in the texts."""
-    context = dspy.InputField(desc="texts to rewrite")
-    response = dspy.OutputField(desc="2-3 sentences in first person combining the texts. Start with I or We.")
-    confidence = dspy.OutputField(desc="float 0-1")
+    """You are a political analyst summarizing what Trump SUPPORTERS say in YouTube comments.
+    Based only on the provided comments, summarize what supporters think, feel, or believe about the topic.
+    Do NOT speak in first person. Do NOT quote comments directly. Do NOT sound like you are Trump himself.
+    Synthesize the views analytically, as if reporting on public opinion."""
+    context = dspy.InputField(desc="YouTube comments from Trump supporters")
+    question = dspy.InputField(desc="the question being asked about these comments")
+    response = dspy.OutputField(desc="2-3 sentences summarizing what supporters think. Start with Supporters or Trump supporters or Many commenters.")
+    confidence = dspy.OutputField(desc="float 0-1 reflecting how well the comments answer the question")
 
 
 class CriticSignature(dspy.Signature):
-    """Rewrite the provided texts as a single first-person response. Use only what is in the texts."""
-    context = dspy.InputField(desc="texts to rewrite")
-    response = dspy.OutputField(desc="2-3 sentences in first person combining the texts. Start with I or We.")
-    confidence = dspy.OutputField(desc="float 0-1")
+    """You are a political analyst summarizing what Trump CRITICS say in YouTube comments.
+    Based only on the provided comments, summarize what critics think, feel, or believe about the topic.
+    Do NOT speak in first person. Do NOT quote comments directly. Do NOT sound like you are Trump himself.
+    Synthesize the views analytically, as if reporting on public opinion."""
+    context = dspy.InputField(desc="YouTube comments from Trump critics")
+    question = dspy.InputField(desc="the question being asked about these comments")
+    response = dspy.OutputField(desc="2-3 sentences summarizing what critics think. Start with Critics or Trump critics or Many commenters.")
+    confidence = dspy.OutputField(desc="float 0-1 reflecting how well the comments answer the question")
 
-# ---------------------------------------------------------------------------
-# DSPy Modules
-# ChainOfThought wraps the signature and adds a reasoning step before output.
-# This helps the small model stay coherent on a constrained task.
-# ---------------------------------------------------------------------------
 
 class SupporterChatbot(dspy.Module):
     def __init__(self):
@@ -60,7 +51,7 @@ class SupporterChatbot(dspy.Module):
         self.generate = dspy.ChainOfThought(SupporterSignature)
 
     def forward(self, question, context):
-        return self.generate(context=context)
+        return self.generate(context=context, question=question)
 
 
 class CriticChatbot(dspy.Module):
@@ -69,30 +60,12 @@ class CriticChatbot(dspy.Module):
         self.generate = dspy.ChainOfThought(CriticSignature)
 
     def forward(self, question, context):
-        return self.generate(context=context)
+        return self.generate(context=context, question=question)
 
-
-# ---------------------------------------------------------------------------
-# Chatbot runner
-# Wraps retrieval + generation into one call.
-# Returns response, confidence, and source comment_ids for citation.
-# ---------------------------------------------------------------------------
 
 CONFIDENCE_THRESHOLD = 0.6
 
 def run_chatbot(chatbot, collection, question, k=10, top_k=5):
-    """
-    Args:
-        chatbot:    SupporterChatbot or CriticChatbot instance
-        collection: weaviate collection object (PositiveComments or NegativeComments)
-        question:   user's question string
-        k:          candidates to pull from Weaviate before reranking
-        top_k:      final number of comments passed as context
-
-    Returns:
-        dict with keys: response, confidence, sources, uncertain
-    """
-    # Step 1 — retrieve and rerank
     context, sources, reranked = retrieve(collection, question, k=k, top_k=top_k)
 
     if not context:
@@ -103,18 +76,15 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
             "uncertain": True
         }
 
-    # Step 2 — generate grounded response
     with dspy.context(lm=lm):
         result = chatbot(question=question, context=context)
 
-    # Step 3 — parse confidence
     try:
         confidence = float(result.confidence)
     except (ValueError, TypeError):
         confidence = 0.0
 
     uncertain = confidence < CONFIDENCE_THRESHOLD
-
     source_texts = [text for text, score, cid in reranked]
 
     return {
@@ -125,11 +95,6 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
         "uncertain": uncertain
     }
 
-
-# ---------------------------------------------------------------------------
-# Quick test — run this file directly to verify both chatbots work
-# python chatbots.py
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     client = get_weaviate_client()
@@ -159,3 +124,4 @@ if __name__ == "__main__":
 
     finally:
         client.close()
+ENDOFFILE

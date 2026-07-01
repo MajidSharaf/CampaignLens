@@ -1,4 +1,3 @@
-cat > /app/chatbot.py << 'ENDOFFILE'
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -24,25 +23,25 @@ lm = dspy.LM(
 dspy.configure(lm=lm)
 
 class SupporterSignature(dspy.Signature):
-    """You are a political analyst summarizing what Trump SUPPORTERS say in YouTube comments.
-    Based only on the provided comments, summarize what supporters think, feel, or believe about the topic.
-    Do NOT speak in first person. Do NOT quote comments directly. Do NOT sound like you are Trump himself.
-    Synthesize the views analytically, as if reporting on public opinion."""
+    """You are a strong Trump supporter who has read thousands of YouTube comments from fellow supporters.
+    Based on the comments provided, share your own opinion and perspective on the topic.
+    Speak in first person as yourself — not as Trump. You are a supporter expressing your own views.
+    Be passionate and grounded in what the comments say."""
     context = dspy.InputField(desc="YouTube comments from Trump supporters")
-    question = dspy.InputField(desc="the question being asked about these comments")
-    response = dspy.OutputField(desc="2-3 sentences summarizing what supporters think. Start with Supporters or Trump supporters or Many commenters.")
-    confidence = dspy.OutputField(desc="float 0-1 reflecting how well the comments answer the question")
+    question = dspy.InputField(desc="the question being asked")
+    response = dspy.OutputField(desc="2-3 sentences in first person as a supporter sharing your own opinion. Start with I believe, I think, In my opinion, or From what I've seen.")
+    confidence = dspy.OutputField(desc="float 0-1 reflecting how well the comments support your response")
 
 
 class CriticSignature(dspy.Signature):
-    """You are a political analyst summarizing what Trump CRITICS say in YouTube comments.
-    Based only on the provided comments, summarize what critics think, feel, or believe about the topic.
-    Do NOT speak in first person. Do NOT quote comments directly. Do NOT sound like you are Trump himself.
-    Synthesize the views analytically, as if reporting on public opinion."""
+    """You are a strong Trump critic who has read thousands of YouTube comments from fellow critics.
+    Based on the comments provided, share your own opinion and perspective on the topic.
+    Speak in first person as yourself — not as Trump. You are a critic expressing your own views.
+    Be direct and grounded in what the comments say."""
     context = dspy.InputField(desc="YouTube comments from Trump critics")
-    question = dspy.InputField(desc="the question being asked about these comments")
-    response = dspy.OutputField(desc="2-3 sentences summarizing what critics think. Start with Critics or Trump critics or Many commenters.")
-    confidence = dspy.OutputField(desc="float 0-1 reflecting how well the comments answer the question")
+    question = dspy.InputField(desc="the question being asked")
+    response = dspy.OutputField(desc="2-3 sentences in first person as a critic sharing your own opinion. Start with I believe, I think, In my opinion, or From what I've seen.")
+    confidence = dspy.OutputField(desc="float 0-1 reflecting how well the comments support your response")
 
 
 class SupporterChatbot(dspy.Module):
@@ -124,4 +123,3 @@ if __name__ == "__main__":
 
     finally:
         client.close()
-ENDOFFILE

@@ -23,32 +23,28 @@ lm = dspy.LM(
 dspy.configure(lm=lm)
 
 class SupporterSignature(dspy.Signature):
-    """You are a chatbot that has read YouTube comments from Trump supporters.
-    You must write a SHORT summary of what those comments say about the topic.
-    RULES: 
-    - Never copy or quote any comment directly
-    - Never address Trump directly
-    - Never say Thank you to anyone
-    - Write 1-2 sentences only
-    - Start with: Based on the comments I read,"""
-    context = dspy.InputField(desc="YouTube comments from Trump supporters")
+    """You are a chatbot summarizing what supporters say in YouTube comments about the topic.
+    Read the provided comments and write a short natural summary of the main sentiment.
+    RULES:
+    - Never copy or quote comments directly
+    - Write 1-2 sentences only"""
+    context = dspy.InputField(desc="YouTube comments from supporters")
     question = dspy.InputField(desc="the question")
-    response = dspy.OutputField(desc="1-2 sentence summary starting with: Based on the comments I read,")
+    response = dspy.OutputField(desc="1-2 sentences naturally summarizing supporter sentiment")
     confidence = dspy.OutputField(desc="float 0-1")
 
 
 class CriticSignature(dspy.Signature):
-    """You are a chatbot that has read YouTube comments from Trump critics.
-    You must write a SHORT summary of what those comments say about the topic.
+    """You are a chatbot summarizing what critics say in YouTube comments about the topic.
+    Read the provided comments and write a short natural summary of the main sentiment.
     RULES:
-    - Never copy or quote any comment directly
-    - Never address Trump directly  
-    - Write 1-2 sentences only
-    - Start with: Based on the comments I read,"""
-    context = dspy.InputField(desc="YouTube comments from Trump critics")
+    - Never copy or quote comments directly
+    - Write 1-2 sentences only"""
+    context = dspy.InputField(desc="YouTube comments from critics")
     question = dspy.InputField(desc="the question")
-    response = dspy.OutputField(desc="1-2 sentence summary starting with: Based on the comments I read,")
+    response = dspy.OutputField(desc="1-2 sentences naturally summarizing critic sentiment")
     confidence = dspy.OutputField(desc="float 0-1")
+
 
 class SupporterChatbot(dspy.Module):
     def __init__(self):
@@ -111,7 +107,7 @@ if __name__ == "__main__":
         supporter = SupporterChatbot()
         critic = CriticChatbot()
 
-        test_question = "What do people think about Trump's handling of the economy?"
+        test_question = "What do people think about the topic?"
 
         print("\n========== SUPPORTER ==========")
         result = run_chatbot(supporter, positive, test_question)

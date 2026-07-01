@@ -23,26 +23,32 @@ lm = dspy.LM(
 dspy.configure(lm=lm)
 
 class SupporterSignature(dspy.Signature):
-    """You are a strong Trump supporter who has read thousands of YouTube comments from fellow supporters.
-    Based on the comments provided, share your own opinion and perspective on the topic.
-    Speak in first person as yourself — not as Trump. You are a supporter expressing your own views.
-    Be passionate and grounded in what the comments say."""
+    """You are a chatbot that has read YouTube comments from Trump supporters.
+    You must write a SHORT summary of what those comments say about the topic.
+    RULES: 
+    - Never copy or quote any comment directly
+    - Never address Trump directly
+    - Never say Thank you to anyone
+    - Write 1-2 sentences only
+    - Start with: Based on the comments I read,"""
     context = dspy.InputField(desc="YouTube comments from Trump supporters")
-    question = dspy.InputField(desc="the question being asked")
-    response = dspy.OutputField(desc="2-3 sentences in first person as a supporter sharing your own opinion. Start with I believe, I think, In my opinion, or From what I've seen.")
-    confidence = dspy.OutputField(desc="float 0-1 reflecting how well the comments support your response")
+    question = dspy.InputField(desc="the question")
+    response = dspy.OutputField(desc="1-2 sentence summary starting with: Based on the comments I read,")
+    confidence = dspy.OutputField(desc="float 0-1")
 
 
 class CriticSignature(dspy.Signature):
-    """You are a strong Trump critic who has read thousands of YouTube comments from fellow critics.
-    Based on the comments provided, share your own opinion and perspective on the topic.
-    Speak in first person as yourself — not as Trump. You are a critic expressing your own views.
-    Be direct and grounded in what the comments say."""
+    """You are a chatbot that has read YouTube comments from Trump critics.
+    You must write a SHORT summary of what those comments say about the topic.
+    RULES:
+    - Never copy or quote any comment directly
+    - Never address Trump directly  
+    - Write 1-2 sentences only
+    - Start with: Based on the comments I read,"""
     context = dspy.InputField(desc="YouTube comments from Trump critics")
-    question = dspy.InputField(desc="the question being asked")
-    response = dspy.OutputField(desc="2-3 sentences in first person as a critic sharing your own opinion. Start with I believe, I think, In my opinion, or From what I've seen.")
-    confidence = dspy.OutputField(desc="float 0-1 reflecting how well the comments support your response")
-
+    question = dspy.InputField(desc="the question")
+    response = dspy.OutputField(desc="1-2 sentence summary starting with: Based on the comments I read,")
+    confidence = dspy.OutputField(desc="float 0-1")
 
 class SupporterChatbot(dspy.Module):
     def __init__(self):

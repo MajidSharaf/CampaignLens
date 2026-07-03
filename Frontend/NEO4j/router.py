@@ -72,7 +72,7 @@ class RouterState(TypedDict):
     persona: str        # "supporter" or "critic" — set by the API before invoking
     route: str          # "rag" or "graph" — set by the classifier node
     response: str
-    confidence: float
+    similarity: float
     sources: list
     source_texts: list
     uncertain: bool
@@ -127,7 +127,7 @@ def rag_node(state: RouterState):
 
     return {
         "response": result["response"],
-        "confidence": result["confidence"],
+        "similarity": result["similarity"],
         "sources": result["sources"],
         "source_texts": result.get("source_texts", []),
         "uncertain": result["uncertain"]
@@ -137,6 +137,9 @@ def rag_node(state: RouterState):
 # ---------------------------------------------------------------------------
 # Node 2b — Graph node
 # Calls Neo4j query regardless of persona — the graph has all comments.
+# Note: query.py's "confidence" is still self-reported by the LLM (no
+# retrieval similarity applies to a graph lookup) — mapped onto the same
+# "similarity" field here so the API response shape stays consistent.
 # ---------------------------------------------------------------------------
 
 def graph_node(state: RouterState):
@@ -144,7 +147,7 @@ def graph_node(state: RouterState):
 
     return {
         "response": result["answer"],
-        "confidence": result["confidence"],
+        "similarity": result["confidence"],
         "sources": result["sources"],
         "source_texts": [],
         "uncertain": result["uncertain"]
@@ -201,7 +204,7 @@ def run_router(question: str, persona: str):
         persona:  "supporter" or "critic"
 
     Returns:
-        dict with keys: response, confidence, sources, uncertain, route
+        dict with keys: response, similarity, sources, uncertain, route
     """
     with mlflow.start_run(run_name=f"router_{persona}", nested=True):
         result = graph.invoke({
@@ -209,7 +212,7 @@ def run_router(question: str, persona: str):
             "persona": persona,
             "route": "",
             "response": "",
-            "confidence": 0.0,
+            "similarity": 0.0,
             "sources": [],
             "source_texts": [],
             "uncertain": False
@@ -217,7 +220,7 @@ def run_router(question: str, persona: str):
 
     return {
         "response": result["response"],
-        "confidence": result["confidence"],
+        "similarity": result["similarity"],
         "sources": result["sources"],
         "source_texts": result.get("source_texts", []),
         "uncertain": result["uncertain"],
@@ -243,6 +246,6 @@ if __name__ == "__main__":
         result = run_router(question, persona)
         print(f"Route:      {result['route']}")
         print(f"Response:   {result['response']}")
-        print(f"Confidence: {result['confidence']}")
+        print(f"Similarity: {result['similarity']}")
         print(f"Uncertain:  {result['uncertain']}")
         print(f"Sources:    {result['sources'][:3]}")

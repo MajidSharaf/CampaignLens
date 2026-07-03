@@ -36,9 +36,9 @@ _stats = {
     "rag_routes": 0,
     "graph_routes": 0,
     "uncertain_count": 0,
-    "confidence_sum": 0.0,
+    "similarity_sum": 0.0,
     "response_times_ms": [],
-    "low_confidence_questions": [],   # questions where confidence < 0.4
+    "low_similarity_questions": [],   # questions where similarity < 0.4
 }
 
 # ---------------------------------------------------------------------------
@@ -76,11 +76,11 @@ def _record(persona: str, result: dict, elapsed_ms: float):
     _stats[f"{result.get('route','rag')}_routes"] += 1
     if result.get("uncertain"):
         _stats["uncertain_count"] += 1
-    conf = float(result.get("confidence", 0.0))
-    _stats["confidence_sum"] += conf
+    sim = float(result.get("similarity", 0.0))
+    _stats["similarity_sum"] += sim
     _stats["response_times_ms"].append(elapsed_ms)
-    if conf < 0.4 and result.get("question"):
-        _stats["low_confidence_questions"].append(result["question"])
+    if sim < 0.4 and result.get("question"):
+        _stats["low_similarity_questions"].append(result["question"])
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -114,7 +114,7 @@ class ChatResponse(BaseModel):
     persona: str
     question: str
     response: str
-    confidence: float
+    similarity: float
     uncertain: bool
     sources: list[str]
     source_texts: list[str]
@@ -221,7 +221,7 @@ def api_eval():
     t = _stats["total_queries"]
     times = _stats["response_times_ms"]
 
-    avg_conf = round(_stats["confidence_sum"] / t, 3) if t else 0.0
+    avg_sim = round(_stats["similarity_sum"] / t, 3) if t else 0.0
     uncertain_rate = round(_stats["uncertain_count"] / t * 100, 1) if t else 0.0
     rag_pct  = round(_stats["rag_routes"]   / t * 100, 1) if t else 0.0
     graph_pct= round(_stats["graph_routes"] / t * 100, 1) if t else 0.0
@@ -238,8 +238,8 @@ def api_eval():
             "rag":   {"count": _stats["rag_routes"],   "pct": rag_pct},
             "graph": {"count": _stats["graph_routes"],  "pct": graph_pct},
         },
-        "confidence": {
-            "avg":           avg_conf,
+        "similarity": {
+            "avg":           avg_sim,
             "uncertain_count": _stats["uncertain_count"],
             "uncertain_rate_pct": uncertain_rate,
         },
@@ -247,7 +247,7 @@ def api_eval():
             "avg": avg_ms,
             "p95": p95_ms,
         },
-        "low_confidence_questions": _stats["low_confidence_questions"][-5:],
+        "low_similarity_questions": _stats["low_similarity_questions"][-5:],
     }
 
 # ---------------------------------------------------------------------------
@@ -389,7 +389,7 @@ def chat_supporter(req: ChatRequest):
     return ChatResponse(
         persona="supporter", question=req.question,
         response=result.get("response", ""),
-        confidence=float(result.get("confidence", 0.0)),
+        similarity=float(result.get("similarity", 0.0)),
         uncertain=bool(result.get("uncertain", False)),
         sources=result.get("sources", []),
         source_texts=result.get("source_texts", []),
@@ -409,7 +409,7 @@ def chat_critic(req: ChatRequest):
     return ChatResponse(
         persona="critic", question=req.question,
         response=result.get("response", ""),
-        confidence=float(result.get("confidence", 0.0)),
+        similarity=float(result.get("similarity", 0.0)),
         uncertain=bool(result.get("uncertain", False)),
         sources=result.get("sources", []),
         source_texts=result.get("source_texts", []),

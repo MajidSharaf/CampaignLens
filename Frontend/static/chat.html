@@ -342,8 +342,8 @@ function appendQuestion(c,text){
 }
 
 function appendAnswer(c,persona,data){
-  const conf=Math.round((data.confidence||0)*100);
-  const barColor=conf>=70?'#22C55E':conf>=40?'#F59E0B':'#EF4444';
+  const sim=Math.round((data.similarity||0)*100);
+  const barColor=sim>=70?'#22C55E':sim>=40?'#F59E0B':'#EF4444';
   const srcId='s'+Date.now()+Math.random().toString(36).slice(2);
   const texts=data.source_texts||[];
   const srcHtml=texts.map((t,i)=>`
@@ -358,11 +358,11 @@ function appendAnswer(c,persona,data){
     <div class="a-block">${esc(data.response||'No response.')}</div>
     <div class="entry-meta">
       <span class="conf-label">
-        <span class="conf-track"><span class="conf-fill" style="width:${conf}%;background:${barColor}"></span></span>
-        ${conf}%
+        <span class="conf-track"><span class="conf-fill" style="width:${sim}%;background:${barColor}"></span></span>
+        ${sim}%
       </span>
       <span class="badge badge-route">${esc(data.route||'rag')}</span>
-      ${data.uncertain?'<span class="badge badge-uncertain">Low confidence</span>':''}
+      ${data.uncertain?'<span class="badge badge-uncertain">Low similarity</span>':''}
       ${texts.length?`<button class="sources-toggle" onclick="toggleSrc('${srcId}',this)">View ${texts.length} source comment${texts.length>1?'s':''}</button>`:''}
     </div>
     ${texts.length?`<div class="sources-wrap" id="${srcId}" style="display:none">${srcHtml}</div>`:''}

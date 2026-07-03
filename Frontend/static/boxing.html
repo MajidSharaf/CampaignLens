@@ -80,7 +80,7 @@ nav{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;border
 <body>
 
 <nav>
-  <a class="back" href="/"><i class="ti ti-arrow-left"></i> Back</a>
+  <a class="back" href="/dashboard"><i class="ti ti-arrow-left"></i> Back</a>
   <div class="wordmark">Campaign<span>Lens</span> <span style="color:var(--muted);font-weight:400">— Boxing</span></div>
   <div class="nav-right">
     <a class="nav-link" href="/chat"><i class="ti ti-messages"></i> Chat</a>
@@ -135,22 +135,12 @@ async function startDebate() {
   }
 
   try {
-    const res = await fetch('/api/debate', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({topic, rounds})
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-
-    // Render each turn one by one with a short delay for visual effect
-    for (const entry of data.rounds) {
-      await new Promise(r => setTimeout(r, 300));
+    await streamDebate(topic, rounds, entry => {
       const id = entry.persona === 'critic' ? `pc-${entry.round}` : `ps-${entry.round}`;
       const placeholder = document.getElementById(id);
       if (placeholder) placeholder.replaceWith(makeCard(entry.persona, entry));
       ring.scrollTop = ring.scrollHeight;
-    }
+    });
   } catch(e) {
     ring.innerHTML = `<div class="empty"><strong>Error</strong><p>${esc(String(e))}</p></div>`;
   }
@@ -159,28 +149,37 @@ async function startDebate() {
   btn.innerHTML = '<i class="ti ti-boxing-glove"></i> Start';
 }
 
-function renderDebate(data) {
-  const ring = document.getElementById('ring');
-  ring.innerHTML = '';
+// Reads the server-sent event stream and invokes onEntry as each round's
+// turn actually finishes generating — no fixed round-trip, no fake delay.
+// The backend (/api/debate/stream) yields one "data: {...}" line per turn,
+// terminated by "data: [DONE]".
+async function streamDebate(topic, rounds, onEntry) {
+  const res = await fetch('/api/debate/stream', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({topic, rounds})
+  });
+  if (!res.ok) throw new Error(await res.text());
 
-  // group by round number
-  const byRound = {};
-  for (const entry of data.rounds) {
-    if (!byRound[entry.round]) byRound[entry.round] = {};
-    byRound[entry.round][entry.persona] = entry;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, {stream: true});
+
+    const messages = buffer.split('\n\n');
+    buffer = messages.pop(); // last chunk may be incomplete — keep it for next read
+
+    for (const msg of messages) {
+      if (!msg.startsWith('data: ')) continue;
+      const payload = msg.slice(6);
+      if (payload === '[DONE]') return;
+      onEntry(JSON.parse(payload));
+    }
   }
-
-  for (const [r, entries] of Object.entries(byRound)) {
-    ring.appendChild(roundHeader(parseInt(r)));
-    const row = document.createElement('div');
-    row.className = 'statement';
-    // critic attacks (left), supporter defends (right)
-    row.appendChild(makeCard('critic', entries.critic));
-    row.appendChild(makeCard('supporter', entries.supporter));
-    ring.appendChild(row);
-  }
-
-  ring.scrollTop = ring.scrollHeight;
 }
 
 function makeCard(persona, entry) {

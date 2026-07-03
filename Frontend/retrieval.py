@@ -1,3 +1,4 @@
+import math
 import weaviate
 from weaviate.classes import query as wq
 from langchain_ollama import OllamaEmbeddings
@@ -76,6 +77,15 @@ def hybridRetrieval(collection, question, k=10, alpha=0.5):
 # ---------------------------------------------------------------------------
 
 RERANKER = None  # lazy load so import doesn't slow startup
+
+def rerank_score_to_similarity(score):
+    """
+    ms-marco-MiniLM-L6-v2 outputs an unbounded logit, not a 0-1 score.
+    Sigmoid squashes it into a relevance probability, which is the
+    documented way to interpret this model's raw output.
+    """
+    return 1 / (1 + math.exp(-score))
+
 
 def rerank(question, scored_results, top_k=5):
     """

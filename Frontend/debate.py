@@ -1,8 +1,10 @@
 """
 debate.py — Boxing debate engine and LLM judge.
 
-Debate: Supporter and Critic take turns responding to each other,
-each grounded in their RAG context. Each round produces a confidence score.
+Debate: Supporter and Critic alternate turns, critic first. Each turn's
+retrieval query and rebuttal prompt include the opponent's previous
+statement (see opponent_last in _debate_turn), so responses genuinely
+address what the other side just said rather than running in parallel.
 
 Judge: A separate LLM evaluates a Q&A pair (question + both chatbot responses)
 and returns a structured verdict.
@@ -15,31 +17,22 @@ from retrieval import retrieve, get_weaviate_client
 
 load_dotenv()
 
+# max_tokens caps generation length at the source — the prompt already asks
+# for 2-3 sentences, but the small model doesn't reliably stop on its own
+# (it was observed running on into numbered lists). Capping tokens enforces
+# brevity structurally instead of hoping the model complies, and cuts
+# per-turn latency since generation time scales with output length.
+DEBATE_MAX_TOKENS = 120
+
 lm = dspy.LM(
     f"ollama/{os.getenv('OLLAMA_MODEL', 'qwen2.5:0.5b')}",
     api_base=os.getenv("OLLAMA_URL", "http://ollama:11434"),
     api_key=None,
     temperature=0.7,
+    max_tokens=DEBATE_MAX_TOKENS,
     cache=False,
 )
 dspy.configure(lm=lm)
-
-# ---------------------------------------------------------------------------
-# DSPy Signatures
-# ---------------------------------------------------------------------------
-
-class DebateRoundSignature(dspy.Signature):
-    """You are in a live debate grounded ONLY in real YouTube comments provided below.
-    Do NOT use outside knowledge — every claim must come directly from the comments in context.
-    Paraphrase or quote what real people said. If you are the critic: attack using what critics said.
-    If you are the supporter: defend using what supporters said and rebut the opponent.
-    Be direct and opinionated. 2-3 sentences max."""
-    topic = dspy.InputField(desc="the debate topic")
-    persona = dspy.InputField(desc="your role: 'critic' (attacker) or 'supporter' (defender)")
-    opponent_last = dspy.InputField(desc="what the opponent just said (empty for critic's opening attack)")
-    context = dspy.InputField(desc="real YouTube comments you MUST use as your only evidence")
-    response = dspy.OutputField(desc="debate statement using only what real commenters said")
-    confidence = dspy.OutputField(desc="float 0-1: how well the context supports your statement")
 
 
 def _debate_turn(persona: str, topic: str, opponent_last: str, context: str) -> tuple[str, float]:
@@ -50,7 +43,8 @@ def _debate_turn(persona: str, topic: str, opponent_last: str, context: str) -> 
         f"You are a {role} in a debate about: {topic}\n"
         f"Use ONLY these real YouTube comments as evidence:\n{context}\n"
         f"{rebut}\n"
-        f"Write 2-3 sharp sentences from the {role}'s perspective, grounded in those comments. "
+        f"Write exactly 2 short sentences (under 40 words total) from the {role}'s perspective, "
+        f"grounded in those comments. Plain prose only — no numbered lists, no headers, no markdown. "
         f"Reply with ONLY your statement, nothing else."
     )
     with dspy.context(lm=lm):
@@ -58,6 +52,12 @@ def _debate_turn(persona: str, topic: str, opponent_last: str, context: str) -> 
     text = (result[0] if isinstance(result, list) else str(result)).strip()
     return text, 0.8
 
+
+# ---------------------------------------------------------------------------
+# DSPy Signature — judge only. Debate turns use the raw prompt above
+# (_debate_turn), not a DSPy signature, to avoid structured-output parsing
+# issues with this small model.
+# ---------------------------------------------------------------------------
 
 class JudgeSignature(dspy.Signature):
     """You are an impartial judge evaluating two chatbot responses to the same question.
@@ -77,20 +77,6 @@ class JudgeSignature(dspy.Signature):
 # Modules
 # ---------------------------------------------------------------------------
 
-class DebateRound(dspy.Module):
-    def __init__(self):
-        super().__init__()
-        self.generate = dspy.ChainOfThought(DebateRoundSignature)
-
-    def forward(self, topic, persona, opponent_last, context):
-        return self.generate(
-            topic=topic,
-            persona=persona,
-            opponent_last=opponent_last,
-            context=context,
-        )
-
-
 class Judge(dspy.Module):
     def __init__(self):
         super().__init__()
@@ -104,7 +90,6 @@ class Judge(dspy.Module):
         )
 
 
-_debate_module = DebateRound()
 _judge_module = Judge()
 
 # ---------------------------------------------------------------------------

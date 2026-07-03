@@ -5,7 +5,7 @@ import os
 import weaviate
 import dspy
 from dotenv import load_dotenv
-from retrieval import retrieve, get_weaviate_client
+from retrieval import retrieve, get_weaviate_client, rerank_score_to_similarity
 
 import mlflow
 mlflow.set_experiment("CampaignLens_Chatbots")
@@ -31,22 +31,20 @@ dspy.configure(lm=lm)
 # ---------------------------------------------------------------------------
 # DSPy Signatures
 # The docstring is the system instruction DSPy optimizes.
-# confidence forces the model to self-assess how well the context supports
-# the response — anything below 0.6 gets flagged as uncertain.
+# Similarity is derived from the reranker's relevance score (see run_chatbot),
+# not self-reported by the generation model.
 # ---------------------------------------------------------------------------
 
 class SupporterSignature(dspy.Signature):
     """Rewrite the provided texts as a single first-person response. Use only what is in the texts."""
     context = dspy.InputField(desc="texts to rewrite")
     response = dspy.OutputField(desc="2-3 sentences in first person combining the texts. Start with I or We.")
-    confidence = dspy.OutputField(desc="float 0-1")
 
 
 class CriticSignature(dspy.Signature):
     """Rewrite the provided texts as a single first-person response. Use only what is in the texts."""
     context = dspy.InputField(desc="texts to rewrite")
     response = dspy.OutputField(desc="2-3 sentences in first person combining the texts. Start with I or We.")
-    confidence = dspy.OutputField(desc="float 0-1")
 
 # ---------------------------------------------------------------------------
 # DSPy Modules
@@ -75,10 +73,10 @@ class CriticChatbot(dspy.Module):
 # ---------------------------------------------------------------------------
 # Chatbot runner
 # Wraps retrieval + generation into one call.
-# Returns response, confidence, and source comment_ids for citation.
+# Returns response, similarity, and source comment_ids for citation.
 # ---------------------------------------------------------------------------
 
-CONFIDENCE_THRESHOLD = 0.6
+SIMILARITY_THRESHOLD = 0.6
 
 def run_chatbot(chatbot, collection, question, k=10, top_k=5):
     """
@@ -90,7 +88,7 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
         top_k:      final number of comments passed as context
 
     Returns:
-        dict with keys: response, confidence, sources, uncertain
+        dict with keys: response, similarity, sources, uncertain
     """
     # Step 1 — retrieve and rerank
     context, sources, reranked = retrieve(collection, question, k=k, top_k=top_k)
@@ -98,7 +96,7 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
     if not context:
         return {
             "response": "No relevant comments were found in the dataset for this question.",
-            "confidence": 0.0,
+            "similarity": 0.0,
             "sources": [],
             "uncertain": True
         }
@@ -107,19 +105,18 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
     with dspy.context(lm=lm):
         result = chatbot(question=question, context=context)
 
-    # Step 3 — parse confidence
-    try:
-        confidence = float(result.confidence)
-    except (ValueError, TypeError):
-        confidence = 0.0
+    # Step 3 — similarity = average reranker relevance of the comments actually
+    # used as context, not a self-reported number from the generation model.
+    avg_score = sum(score for _, score, _ in reranked) / len(reranked)
+    similarity = rerank_score_to_similarity(avg_score)
 
-    uncertain = confidence < CONFIDENCE_THRESHOLD
+    uncertain = similarity < SIMILARITY_THRESHOLD
 
     source_texts = [text for text, score, cid in reranked]
 
     return {
         "response": result.response,
-        "confidence": round(confidence, 2),
+        "similarity": round(similarity, 2),
         "sources": sources,
         "source_texts": source_texts,
         "uncertain": uncertain
@@ -146,14 +143,14 @@ if __name__ == "__main__":
         print("\n========== SUPPORTER ==========")
         result = run_chatbot(supporter, positive, test_question)
         print(f"Response:   {result['response']}")
-        print(f"Confidence: {result['confidence']}")
+        print(f"Similarity: {result['similarity']}")
         print(f"Uncertain:  {result['uncertain']}")
         print(f"Sources:    {result['sources']}")
 
         print("\n========== CRITIC ==========")
         result = run_chatbot(critic, negative, test_question)
         print(f"Response:   {result['response']}")
-        print(f"Confidence: {result['confidence']}")
+        print(f"Similarity: {result['similarity']}")
         print(f"Uncertain:  {result['uncertain']}")
         print(f"Sources:    {result['sources']}")
 

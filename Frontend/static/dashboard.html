@@ -35,7 +35,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .pill{font-size:11px;font-family:"SF Mono","Fira Code",monospace;color:var(--muted);border:1px solid var(--border);padding:2px 8px;background:var(--surface)}
 
 .tabs{display:flex;align-items:stretch;margin-left:auto;border-left:1px solid var(--border)}
-.tab-btn{display:flex;align-items:center;gap:6px;padding:0 1.4rem;font-size:12px;font-weight:500;color:var(--muted);border:none;border-right:1px solid var(--border);background:none;cursor:pointer;letter-spacing:.03em;border-bottom:2px solid transparent;transition:color .15s}
+.tab-btn{display:flex;align-items:center;gap:6px;padding:0 1.4rem;font-size:12px;font-weight:500;color:var(--muted);border:none;border-right:1px solid var(--border);background:none;cursor:pointer;letter-spacing:.03em;border-bottom:2px solid transparent;transition:color .15s;text-decoration:none}
 .tab-btn:last-child{border-right:none}
 .tab-btn:hover{color:var(--text)}
 .tab-btn.active{color:var(--text);border-bottom-color:var(--blue)}
@@ -51,14 +51,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 /* ─────────────────────────────────────────────────────
    TAB 1: CHATBOTS
 ──────────────────────────────────────────────────────*/
-.chat-panels{display:grid;grid-template-columns:1fr auto 1fr;flex:1;overflow:hidden}
-.boxing-divider{display:flex;flex-direction:column;align-items:center;justify-content:center;width:52px;background:var(--surface);border-left:1px solid var(--border);border-right:1px solid var(--border)}
+.chat-panels{display:grid;grid-template-columns:1fr 1fr;flex:1;overflow:hidden}
 .src-comment{font-size:12px;line-height:1.5;color:var(--text);border-left:2px solid var(--border);padding:6px 10px;background:var(--surface);margin-bottom:4px}
 .src-comment-num{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:2px}
 .src-wrap{display:flex;flex-direction:column;gap:0;padding-top:4px}
-.boxing-btn{display:flex;flex-direction:column;align-items:center;gap:4px;text-decoration:none;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:.6rem .4rem;border:1px solid var(--border);background:var(--bg);transition:color .15s,border-color .15s,background .15s}
-.boxing-btn:hover{color:var(--blue);border-color:var(--blue);background:var(--blue-bg)}
-.boxing-btn i{font-size:18px}
 .chat-col{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
 .chat-col:last-child{border-right:none}
 
@@ -293,6 +289,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     <button class="tab-btn active" onclick="switchTab('chatbots',this)" id="tab-chatbots">
       <i class="ti ti-message-circle" aria-hidden="true"></i> Chatbots
     </button>
+    <a class="tab-btn" href="/boxing" title="Open Boxing debate">
+      <i class="ti ti-boxing-glove" aria-hidden="true"></i> Boxing
+    </a>
     <button class="tab-btn" onclick="switchTab('analysis',this)" id="tab-analysis">
       <i class="ti ti-chart-bar" aria-hidden="true"></i> Analysis
     </button>
@@ -332,10 +331,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
         <textarea id="inp-sup" placeholder="Ask a question…" oninput="resizeTA(this)" onkeydown="handleKey(event,'sup')"></textarea>
         <button class="send-btn" id="btn-sup" onclick="sendMsg('sup')" aria-label="Send"><i class="ti ti-arrow-up" aria-hidden="true"></i></button>
       </div>
-    </div>
-
-    <div class="boxing-divider">
-      <a href="/boxing" class="boxing-btn" title="Open Boxing debate"><i class="ti ti-boxing-glove"></i></a>
     </div>
 
     <div class="chat-col crit">
@@ -403,7 +398,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
             <div id="evalRouting"></div>
           </div>
           <div class="eval-card">
-            <div class="eval-card-title">Confidence distribution</div>
+            <div class="eval-card-title">Similarity distribution</div>
             <div id="evalConfidence"></div>
           </div>
           <div class="eval-card">
@@ -411,7 +406,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
             <div id="evalLatency"></div>
           </div>
           <div class="eval-card">
-            <div class="eval-card-title">Low-confidence questions</div>
+            <div class="eval-card-title">Low-similarity questions</div>
             <div id="evalLowConf"></div>
           </div>
         </div>
@@ -508,8 +503,8 @@ function appendQ(c,text){
   c.appendChild(d);scrollDown(c);
 }
 function appendA(c,side,data){
-  const conf=Math.round((data.confidence||0)*100);
-  const barCol=conf>=70?'#22C55E':conf>=40?'#F59E0B':'#EF4444';
+  const sim=Math.round((data.similarity||0)*100);
+  const barCol=sim>=70?'#22C55E':sim>=40?'#F59E0B':'#EF4444';
   const sid='s'+Date.now()+Math.random().toString(36).slice(2);
   const texts=data.source_texts||[];
   const srcHtml=texts.map((t,i)=>`<div class="src-comment"><div class="src-comment-num">Comment ${i+1}</div>${esc(t)}</div>`).join('');
@@ -517,9 +512,9 @@ function appendA(c,side,data){
   d.innerHTML=`
     <div class="a-block">${esc(data.response||'No response.')}</div>
     <div class="entry-meta">
-      <span class="conf-label"><span class="conf-track"><span class="conf-fill" style="width:${conf}%;background:${barCol}"></span></span>${conf}%</span>
+      <span class="conf-label"><span class="conf-track"><span class="conf-fill" style="width:${sim}%;background:${barCol}"></span></span>${sim}%</span>
       <span class="badge badge-route">${esc(data.route||'rag')}</span>
-      ${data.uncertain?'<span class="badge badge-uncertain">Low confidence</span>':''}
+      ${data.uncertain?'<span class="badge badge-uncertain">Low similarity</span>':''}
       ${texts.length?`<button class="src-toggle" onclick="toggleSrc('${sid}',this)">View ${texts.length} source comment${texts.length>1?'s':''}</button>`:''}
     </div>
     ${texts.length?`<div class="src-wrap" id="${sid}" style="display:none">${srcHtml}</div>`:''}
@@ -776,7 +771,7 @@ function renderEval(e){
     <div class="eval-metric"><div class="eval-metric-num">${e.total_queries}</div><div class="eval-metric-label">Total queries</div></div>
     <div class="eval-metric"><div class="eval-metric-num mn-blue">${e.by_persona.supporter}</div><div class="eval-metric-label">Supporter</div></div>
     <div class="eval-metric"><div class="eval-metric-num mn-red">${e.by_persona.critic}</div><div class="eval-metric-label">Critic</div></div>
-    <div class="eval-metric"><div class="eval-metric-num ${e.confidence.uncertain_rate_pct>30?'mn-red':''}">${e.confidence.uncertain_rate_pct}%</div><div class="eval-metric-label">Uncertain rate</div></div>
+    <div class="eval-metric"><div class="eval-metric-num ${e.similarity.uncertain_rate_pct>30?'mn-red':''}">${e.similarity.uncertain_rate_pct}%</div><div class="eval-metric-label">Uncertain rate</div></div>
   `;
 
   // routing
@@ -793,19 +788,19 @@ function renderEval(e){
     <div class="eval-row"><span class="eval-row-label">Critic queries</span><span class="eval-row-val">${e.by_persona.critic}</span></div>
   `;
 
-  // confidence
-  const certain = 100 - e.confidence.uncertain_rate_pct;
+  // similarity
+  const certain = 100 - e.similarity.uncertain_rate_pct;
   document.getElementById('evalConfidence').innerHTML=`
     <div class="eval-bar-row">
-      <div class="eval-bar-label"><span>Confident (≥0.6)</span><span>${certain}%</span></div>
+      <div class="eval-bar-label"><span>High similarity (≥0.6)</span><span>${certain}%</span></div>
       <div class="eval-bar-track"><div class="eval-bar-fill certain" style="width:${certain}%"></div></div>
     </div>
     <div class="eval-bar-row">
-      <div class="eval-bar-label"><span>Uncertain (&lt;0.6)</span><span>${e.confidence.uncertain_rate_pct}%</span></div>
-      <div class="eval-bar-track"><div class="eval-bar-fill uncertain" style="width:${e.confidence.uncertain_rate_pct}%"></div></div>
+      <div class="eval-bar-label"><span>Uncertain (&lt;0.6)</span><span>${e.similarity.uncertain_rate_pct}%</span></div>
+      <div class="eval-bar-track"><div class="eval-bar-fill uncertain" style="width:${e.similarity.uncertain_rate_pct}%"></div></div>
     </div>
-    <div class="eval-row" style="margin-top:8px"><span class="eval-row-label">Avg confidence score</span><span class="eval-row-val">${e.confidence.avg}</span></div>
-    <div class="eval-row"><span class="eval-row-label">Uncertain responses</span><span class="eval-row-val">${e.confidence.uncertain_count}</span></div>
+    <div class="eval-row" style="margin-top:8px"><span class="eval-row-label">Avg similarity score</span><span class="eval-row-val">${e.similarity.avg}</span></div>
+    <div class="eval-row"><span class="eval-row-label">Uncertain responses</span><span class="eval-row-val">${e.similarity.uncertain_count}</span></div>
   `;
 
   // latency
@@ -815,11 +810,11 @@ function renderEval(e){
     <div class="eval-row"><span class="eval-row-label">Total queries timed</span><span class="eval-row-val">${e.total_queries}</span></div>
   `;
 
-  // low confidence questions
-  const lc = e.low_confidence_questions;
+  // low similarity questions
+  const lc = e.low_similarity_questions;
   document.getElementById('evalLowConf').innerHTML = lc.length
     ? lc.map(q=>`<div class="eval-lc">${esc(q)}</div>`).join('')
-    : '<div class="eval-none">None — all responses were confident.</div>';
+    : '<div class="eval-none">None — all responses had high similarity.</div>';
 }
 const SVC_META={
   weaviate:{label:'Weaviate',desc:'Vector store — PositiveComments and NegativeComments collections'},

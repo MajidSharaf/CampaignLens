@@ -13,12 +13,6 @@ mlflow.dspy.autolog()
 
 load_dotenv()
 
-# ---------------------------------------------------------------------------
-# DSPy LM setup
-# Same model instance for both chatbots.
-# Differentiation comes from the signature + retrieved context, not the weights.
-# ---------------------------------------------------------------------------
-
 lm = dspy.LM(
     f"ollama/{os.getenv('OLLAMA_MODEL', 'qwen2.5:0.5b')}",
     api_base=os.getenv("OLLAMA_URL", "http://ollama:11434"),
@@ -32,25 +26,30 @@ dspy.configure(lm=lm)
 # DSPy Signatures
 # The docstring is the system instruction DSPy optimizes.
 # Similarity is derived from the reranker's relevance score (see run_chatbot),
-# not self-reported by the generation model.
+# not self-reported by the generation model — hence no confidence output field.
 # ---------------------------------------------------------------------------
 
 class SupporterSignature(dspy.Signature):
-    """Rewrite the provided texts as a single first-person response. Use only what is in the texts."""
-    context = dspy.InputField(desc="texts to rewrite")
-    response = dspy.OutputField(desc="2-3 sentences in first person combining the texts. Start with I or We.")
+    """You are a chatbot summarizing what supporters say in YouTube comments about the topic.
+    Read the provided comments and write a short natural summary of the main sentiment.
+    RULES:
+    - Never copy or quote comments directly
+    - Write 1-2 sentences only"""
+    context = dspy.InputField(desc="YouTube comments from supporters")
+    question = dspy.InputField(desc="the question")
+    response = dspy.OutputField(desc="1-2 sentences naturally summarizing supporter sentiment")
 
 
 class CriticSignature(dspy.Signature):
-    """Rewrite the provided texts as a single first-person response. Use only what is in the texts."""
-    context = dspy.InputField(desc="texts to rewrite")
-    response = dspy.OutputField(desc="2-3 sentences in first person combining the texts. Start with I or We.")
+    """You are a chatbot summarizing what critics say in YouTube comments about the topic.
+    Read the provided comments and write a short natural summary of the main sentiment.
+    RULES:
+    - Never copy or quote comments directly
+    - Write 1-2 sentences only"""
+    context = dspy.InputField(desc="YouTube comments from critics")
+    question = dspy.InputField(desc="the question")
+    response = dspy.OutputField(desc="1-2 sentences naturally summarizing critic sentiment")
 
-# ---------------------------------------------------------------------------
-# DSPy Modules
-# ChainOfThought wraps the signature and adds a reasoning step before output.
-# This helps the small model stay coherent on a constrained task.
-# ---------------------------------------------------------------------------
 
 class SupporterChatbot(dspy.Module):
     def __init__(self):
@@ -58,7 +57,7 @@ class SupporterChatbot(dspy.Module):
         self.generate = dspy.ChainOfThought(SupporterSignature)
 
     def forward(self, question, context):
-        return self.generate(context=context)
+        return self.generate(context=context, question=question)
 
 
 class CriticChatbot(dspy.Module):
@@ -67,7 +66,7 @@ class CriticChatbot(dspy.Module):
         self.generate = dspy.ChainOfThought(CriticSignature)
 
     def forward(self, question, context):
-        return self.generate(context=context)
+        return self.generate(context=context, question=question)
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +100,6 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
             "uncertain": True
         }
 
-    # Step 2 — generate grounded response
     with dspy.context(lm=lm):
         result = chatbot(question=question, context=context)
 
@@ -123,11 +121,6 @@ def run_chatbot(chatbot, collection, question, k=10, top_k=5):
     }
 
 
-# ---------------------------------------------------------------------------
-# Quick test — run this file directly to verify both chatbots work
-# python chatbots.py
-# ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
     client = get_weaviate_client()
 
@@ -138,7 +131,7 @@ if __name__ == "__main__":
         supporter = SupporterChatbot()
         critic = CriticChatbot()
 
-        test_question = "What do people think about Trump's handling of the economy?"
+        test_question = "What do people think about the topic?"
 
         print("\n========== SUPPORTER ==========")
         result = run_chatbot(supporter, positive, test_question)

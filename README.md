@@ -135,16 +135,6 @@ CampaignLens/
 
 ---
 
-## Team
-
-| Member | Responsibility |
-|---|---|
-| Majid | LLM layer · DSPy chatbots · LangGraph routing · FastAPI · Frontend |
-| Teammate 2 | Scraping · Preprocessing · Sentiment · NER · Topic modelling · Embedding |
-| Teammate 3 | Weaviate · Neo4j · Docker · Integration |
-
----
-
 ## Design decisions
 
 **Why Weaviate over FAISS?**

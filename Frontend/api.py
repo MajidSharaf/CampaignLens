@@ -42,32 +42,26 @@ _stats = {
 }
 
 # ---------------------------------------------------------------------------
-# Judge history — auto-populated when both sides answer the same question
+# Judge history — auto-populated after every chatbot response
 # ---------------------------------------------------------------------------
 
-_judge_pending: dict = {}   # question -> {"supporter": str, "critic": str}
+_judge_latest: dict = {}    # {"supporter": {question, response}, "critic": {question, response}}
 _judge_history: list = []   # list of verdict dicts, newest last
 
-def _auto_judge(question: str):
-    """Called in a background thread when both sides have responded."""
-    pair = _judge_pending.get(question, {})
-    s_resp = pair.get("supporter", "")
-    c_resp = pair.get("critic", "")
-    if not s_resp or not c_resp:
-        return
+def _auto_judge(s_question: str, s_resp: str, c_question: str, c_resp: str):
+    """Called in a background thread after every response, uses latest from each side."""
     try:
-        verdict = run_judge(question=question, supporter_response=s_resp, critic_response=c_resp)
+        verdict = run_judge(question=s_question, supporter_response=s_resp, critic_response=c_resp)
         _judge_history.append({
             "timestamp": int(time.time()),
-            "question": question,
+            "question": s_question,
+            "critic_question": c_question,
             "supporter_response": s_resp,
             "critic_response": c_resp,
             **verdict,
         })
     except Exception as e:
         print(f"[judge] auto-judge failed: {e}")
-    finally:
-        _judge_pending.pop(question, None)
 
 
 def _record(persona: str, result: dict, elapsed_ms: float):
@@ -419,15 +413,14 @@ def chat_critic(req: ChatRequest):
 
 @app.post("/api/judge/auto")
 def api_judge_auto(req: JudgeLogRequest):
-    """Log one side's response. When both sides exist for the same question, run judge."""
+    """Log this side's latest response. Judge runs whenever both sides have responded at least once."""
     if req.persona not in ("supporter", "critic"):
         raise HTTPException(status_code=400, detail="persona must be supporter or critic")
-    q = req.question.strip()
-    if q not in _judge_pending:
-        _judge_pending[q] = {}
-    _judge_pending[q][req.persona] = req.response
-    if "supporter" in _judge_pending[q] and "critic" in _judge_pending[q]:
-        threading.Thread(target=_auto_judge, args=(q,), daemon=True).start()
+    _judge_latest[req.persona] = {"question": req.question.strip(), "response": req.response}
+    s = _judge_latest.get("supporter")
+    c = _judge_latest.get("critic")
+    if s and c:
+        threading.Thread(target=_auto_judge, args=(s["question"], s["response"], c["question"], c["response"]), daemon=True).start()
         return {"status": "judging"}
     return {"status": "waiting"}
 

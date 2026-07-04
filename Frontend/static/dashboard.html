@@ -309,7 +309,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <!-- ── TAB: CHATBOTS ── -->
 <div class="panel active" id="panel-chatbots">
   <div class="info-strip">
-    <span class="info-strip-text">Independent inputs — each chatbot gets its own question</span>
     <span class="last-run-text" id="lastRunText"></span>
   </div>
   <div class="chat-panels">
@@ -675,7 +674,7 @@ function renderKeywords(d){
   }
   const panels=tabs.map(t=>`<div class="kw-panel${t.key==='overall'?' active':''}" id="kwp-${t.key}">${kwList(d.keywords[t.key])}</div>`).join('');
   const btns=tabs.map(t=>`<button class="f-btn${t.key==='overall'?' active':''}" onclick="switchKw('${t.key}',this)">${t.label}</button>`).join('');
-  return `<div class="an-section"><div class="section-head"><div class="section-title">Keyword extraction</div><div class="section-sub">YAKE — top keywords by frequency, filterable by sentiment</div></div>
+  return `<div class="an-section"><div class="section-head"><div class="section-title">Keyword extraction</div><div class="section-sub">TF-IDF — top keywords by weight, filterable by sentiment</div></div>
     <div class="kw-filters">${btns}</div>
     <div class="kw-panels">${panels}</div>
   </div>`;

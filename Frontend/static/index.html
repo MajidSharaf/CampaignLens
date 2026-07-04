@@ -119,7 +119,7 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
   <div class="left">
     <p class="eyebrow">About the project</p>
     <h1>What are people<br>saying about <em>any topic</em><br>— and <strong>why?</strong></h1>
-    <p class="intro">CampaignLens is an NLP pipeline that scrapes YouTube comments, runs dual-model sentiment analysis, named entity recognition, and topic modelling, then serves two opposing AI chatbots grounded entirely in what real commenters wrote.</p>
+    <p class="intro">CampaignLens is an NLP pipeline that scrapes YouTube comments, runs sentiment analysis, named entity recognition, and topic modelling, then serves two opposing AI chatbots grounded entirely in what real commenters wrote.</p>
 
     <div class="sec-head">Pipeline</div>
     <div class="steps">
@@ -127,8 +127,7 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
         <div class="step-n">1</div>
         <div class="step-body">
           <div class="step-title">Data collection</div>
-          <div class="step-desc">YouTube Data API scrapes ~30k comments across multiple campaign videos.</div>
-          <div class="tags"><span class="tag">YouTube API</span></div>
+          <div class="step-desc">YouTube Data API scrapes comments across multiple campaign videos.</div>
         </div>
       </div>
       <div class="step">
@@ -136,41 +135,31 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
         <div class="step-body">
           <div class="step-title">Preprocessing</div>
           <div class="step-desc">Noise removal, emoji handling, tokenisation, deduplication.</div>
-          <div class="tags"><span class="tag">pandas</span><span class="tag">spaCy</span></div>
         </div>
       </div>
       <div class="step">
         <div class="step-n">3</div>
         <div class="step-body">
           <div class="step-title">Analysis</div>
-          <div class="step-desc">Dual-model sentiment (Vader + RoBERTa), named entity recognition, LDA topic modelling.</div>
-          <div class="tags"><span class="tag">Vader</span><span class="tag">RoBERTa</span><span class="tag">LDA</span><span class="tag">spaCy</span></div>
+          <div class="step-desc">RoBERTa sentiment classification, named entity recognition, LDA topic modelling.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-n">4</div>
         <div class="step-body">
           <div class="step-title">Embedding &amp; storage</div>
-          <div class="step-desc">Comments vectorised via Ollama, stored in Weaviate. REBEL triplets loaded into Neo4j.</div>
-          <div class="tags"><span class="tag">Weaviate</span><span class="tag">Neo4j</span><span class="tag">Ollama</span></div>
+          <div class="step-desc">Comments are embedded and stored in a vector database for semantic search.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-n">5</div>
         <div class="step-body">
           <div class="step-title">RAG chatbots</div>
-          <div class="step-desc">LangGraph routes queries to Weaviate hybrid search or Neo4j. DSPy generates grounded answers.</div>
-          <div class="tags"><span class="tag">DSPy</span><span class="tag">LangGraph</span><span class="tag">FastAPI</span></div>
+          <div class="step-desc">Two opposing chatbots retrieve and ground their answers in real comments.</div>
         </div>
       </div>
     </div>
 
-    <div class="sec-head" style="margin-top:22px">Team</div>
-    <div class="team">
-      <div class="member"><div class="member-name">Majid</div><div class="member-role">LLM · Chatbot · Routing</div></div>
-      <div class="member"><div class="member-name">Teammate 2</div><div class="member-role">Pipeline · Embedding</div></div>
-      <div class="member"><div class="member-name">Teammate 3</div><div class="member-role">Frontend · Integration</div></div>
-    </div>
   </div>
 
   <div class="right">

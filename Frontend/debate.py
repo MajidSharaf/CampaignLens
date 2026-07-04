@@ -121,16 +121,16 @@ def stream_debate(topic: str, rounds: int = 3):
 
     for i in range(rounds):
         # Critic attacks
-        context, sources, _ = retrieve(negative, f"{topic} {supporter_last}".strip(), k=10, top_k=5)
+        context, sources, reranked = retrieve(negative, f"{topic} {supporter_last}".strip(), k=10, top_k=5)
         c_response, c_conf = _debate_turn("critic", topic, supporter_last, context or "No relevant comments found.")
         critic_last = c_response
-        yield {"round": i + 1, "persona": "critic", "response": c_response, "confidence": c_conf, "sources": sources}
+        yield {"round": i + 1, "persona": "critic", "response": c_response, "confidence": c_conf, "sources": sources, "source_texts": [t for t, _, _ in reranked]}
 
         # Supporter defends
-        context, sources, _ = retrieve(positive, f"{topic} {critic_last}".strip(), k=10, top_k=5)
+        context, sources, reranked = retrieve(positive, f"{topic} {critic_last}".strip(), k=10, top_k=5)
         s_response, s_conf = _debate_turn("supporter", topic, critic_last, context or "No relevant comments found.")
         supporter_last = s_response
-        yield {"round": i + 1, "persona": "supporter", "response": s_response, "confidence": s_conf, "sources": sources}
+        yield {"round": i + 1, "persona": "supporter", "response": s_response, "confidence": s_conf, "sources": sources, "source_texts": [t for t, _, _ in reranked]}
 
 
 def run_debate(topic: str, rounds: int = 3) -> dict:
@@ -160,17 +160,16 @@ def run_debate(topic: str, rounds: int = 3) -> dict:
 
     for i in range(rounds):
         # --- Critic attacks first ---
-        context, sources, _ = retrieve(negative, f"{topic} {supporter_last}".strip(), k=10, top_k=5)
-
+        context, sources, reranked = retrieve(negative, f"{topic} {supporter_last}".strip(), k=10, top_k=5)
         c_response, c_conf = _debate_turn("critic", topic, supporter_last, context or "No relevant comments found.")
         critic_last = c_response
-        results.append({"round": i + 1, "persona": "critic", "response": c_response, "confidence": c_conf, "sources": sources})
+        results.append({"round": i + 1, "persona": "critic", "response": c_response, "confidence": c_conf, "sources": sources, "source_texts": [t for t, _, _ in reranked]})
 
         # --- Supporter defends ---
-        context, sources, _ = retrieve(positive, f"{topic} {critic_last}".strip(), k=10, top_k=5)
+        context, sources, reranked = retrieve(positive, f"{topic} {critic_last}".strip(), k=10, top_k=5)
         s_response, s_conf = _debate_turn("supporter", topic, critic_last, context or "No relevant comments found.")
         supporter_last = s_response
-        results.append({"round": i + 1, "persona": "supporter", "response": s_response, "confidence": s_conf, "sources": sources})
+        results.append({"round": i + 1, "persona": "supporter", "response": s_response, "confidence": s_conf, "sources": sources, "source_texts": [t for t, _, _ in reranked]})
 
     return {"topic": topic, "rounds": results}
 

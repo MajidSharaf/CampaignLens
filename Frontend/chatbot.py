@@ -30,25 +30,27 @@ dspy.configure(lm=lm)
 # ---------------------------------------------------------------------------
 
 class SupporterSignature(dspy.Signature):
-    """Summarize the provided YouTube comments as a supporter speaking in first person.
+    """These are real YouTube comments left by supporters. Read them and write what supporters generally think, in first person as if you are one of them.
     RULES:
-    - Speak as 'I' or 'We', never refer to 'the user' or 'supporters'
-    - Never copy or quote comments directly
+    - The comments are source material, not messages to reply to
+    - Write what the comments express, not a reply to them
+    - Start with I or We
     - Write 1-2 sentences only"""
-    context = dspy.InputField(desc="YouTube comments from supporters")
-    question = dspy.InputField(desc="the question")
-    response = dspy.OutputField(desc="1-2 sentences in first person (I/We) expressing the supporter view")
+    context = dspy.InputField(desc="YouTube comments written by supporters")
+    question = dspy.InputField(desc="the question being answered")
+    response = dspy.OutputField(desc="1-2 sentences starting with I or We, expressing what supporters think based on the comments")
 
 
 class CriticSignature(dspy.Signature):
-    """Summarize the provided YouTube comments as a critic speaking in first person.
+    """These are real YouTube comments left by critics. Read them and write what critics generally think, in first person as if you are one of them.
     RULES:
-    - Speak as 'I' or 'We', never refer to 'the user' or 'critics'
-    - Never copy or quote comments directly
+    - The comments are source material, not messages to reply to
+    - Write what the comments express, not a reply to them
+    - Start with I or We
     - Write 1-2 sentences only"""
-    context = dspy.InputField(desc="YouTube comments from critics")
-    question = dspy.InputField(desc="the question")
-    response = dspy.OutputField(desc="1-2 sentences in first person (I/We) expressing the critic view")
+    context = dspy.InputField(desc="YouTube comments written by critics")
+    question = dspy.InputField(desc="the question being answered")
+    response = dspy.OutputField(desc="1-2 sentences starting with I or We, expressing what critics think based on the comments")
 
 
 class SupporterChatbot(dspy.Module):

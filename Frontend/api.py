@@ -45,21 +45,20 @@ _stats = {
 # Judge history — auto-populated after every chatbot response
 # ---------------------------------------------------------------------------
 
-_judge_latest: dict = {}    # {"supporter": {question, response}, "critic": {question, response}}
 _judge_history: list = []   # list of verdict dicts, newest last
 
-def _auto_judge(s_question: str, s_resp: str, c_question: str, c_resp: str):
-    """Called in a background thread after every response, uses latest from each side."""
+def _auto_judge(question: str, persona: str, response: str):
+    """Evaluate a single chatbot response independently."""
     try:
-        verdict = run_judge(question=s_question, supporter_response=s_resp, critic_response=c_resp)
+        verdict = run_judge(question=question, persona=persona, response=response)
         _judge_history.append({
             "timestamp": int(time.time()),
-            "question": s_question,
-            "critic_question": c_question,
-            "supporter_response": s_resp,
-            "critic_response": c_resp,
+            "question": question,
+            "persona": persona,
+            "response": response,
             **verdict,
         })
+        print(f"[judge] judged {persona}: {verdict}")
     except Exception as e:
         print(f"[judge] auto-judge failed: {e}")
 
@@ -413,16 +412,11 @@ def chat_critic(req: ChatRequest):
 
 @app.post("/api/judge/auto")
 def api_judge_auto(req: JudgeLogRequest):
-    """Log this side's latest response. Judge runs whenever both sides have responded at least once."""
+    """Judge this response immediately, independently."""
     if req.persona not in ("supporter", "critic"):
         raise HTTPException(status_code=400, detail="persona must be supporter or critic")
-    _judge_latest[req.persona] = {"question": req.question.strip(), "response": req.response}
-    s = _judge_latest.get("supporter")
-    c = _judge_latest.get("critic")
-    if s and c:
-        threading.Thread(target=_auto_judge, args=(s["question"], s["response"], c["question"], c["response"]), daemon=True).start()
-        return {"status": "judging"}
-    return {"status": "waiting"}
+    threading.Thread(target=_auto_judge, args=(req.question.strip(), req.persona, req.response), daemon=True).start()
+    return {"status": "judging"}
 
 @app.get("/api/judge/history")
 def api_judge_history():

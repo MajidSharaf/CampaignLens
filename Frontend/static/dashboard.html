@@ -427,7 +427,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
         <button class="refresh-btn" onclick="loadJudgeHistory()"><i class="ti ti-refresh"></i> Refresh</button>
       </div>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:1.5rem">After both chatbots have responded, each exchange is automatically evaluated here.</p>
     <div id="judgeHistoryWrap"></div>
   </div>
 </div>
@@ -866,32 +865,21 @@ async function loadJudgeHistory(){
       return;
     }
     wrap.innerHTML = items.map(entry=>{
-      const sc = Math.round((entry.supporter_score||0)*100);
-      const cc = Math.round((entry.critic_score||0)*100);
+      const sc = Math.round((entry.score||0)*100);
       const ts = entry.timestamp ? new Date(entry.timestamp*1000).toLocaleString() : '';
-      return `<div style="border:1px solid var(--border);margin-bottom:1rem;padding:1rem">
+      const isSupporter = entry.persona === 'supporter';
+      const color = isSupporter ? 'var(--blue)' : 'var(--red)';
+      const label = isSupporter ? 'SUPPORTER' : 'CRITIC';
+      return `<div style="border:1px solid var(--border);border-radius:4px;margin-bottom:.75rem;padding:1rem">
         <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
-          <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">${esc(ts)}</span>
+          <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${color}">${label}</span>
           <span style="font-size:13px;font-weight:600;color:var(--text);flex:1">${esc(entry.question)}</span>
+          <span style="font-size:10px;color:var(--muted)">${esc(ts)}</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
-          <div class="eval-card">
-            <div class="eval-card-title" style="color:var(--blue)">Supporter <span style="font-weight:400;color:var(--muted)">(${sc}%)</span></div>
-            <div class="eval-bar-track" style="margin:.4rem 0"><div class="eval-bar-fill" style="width:${sc}%;background:var(--blue)"></div></div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:.35rem">${esc(entry.supporter_feedback||'')}</div>
-            <div style="font-size:12px;color:var(--text);border-left:2px solid var(--blue-border);padding-left:.5rem;line-height:1.5">${esc(entry.supporter_response||'')}</div>
-          </div>
-          <div class="eval-card">
-            <div class="eval-card-title" style="color:var(--red)">Critic <span style="font-weight:400;color:var(--muted)">(${cc}%)</span></div>
-            <div class="eval-bar-track" style="margin:.4rem 0"><div class="eval-bar-fill" style="width:${cc}%;background:var(--red)"></div></div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:.35rem">${esc(entry.critic_feedback||'')}</div>
-            <div style="font-size:12px;color:var(--text);border-left:2px solid var(--red-border);padding-left:.5rem;line-height:1.5">${esc(entry.critic_response||'')}</div>
-          </div>
-        </div>
-        <div class="eval-card" style="border-left:3px solid var(--border)">
-          <div class="eval-card-title">Verdict</div>
-          <div style="font-size:13px;line-height:1.6;color:var(--text);margin-top:.25rem">${esc(entry.verdict||'')}</div>
-        </div>
+        <div style="font-size:12px;color:var(--text);border-left:2px solid ${color};padding-left:.5rem;line-height:1.5;margin-bottom:.75rem">${esc(entry.response||'')}</div>
+        <div class="eval-bar-track" style="margin-bottom:.4rem"><div class="eval-bar-fill" style="width:${sc}%;background:${color}"></div></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:.4rem">${sc}% — ${esc(entry.feedback||'')}</div>
+        <div style="font-size:12px;color:var(--text)">${esc(entry.verdict||'')}</div>
       </div>`;
     }).join('');
   }catch(e){

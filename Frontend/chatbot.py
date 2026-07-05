@@ -30,25 +30,25 @@ dspy.configure(lm=lm)
 # ---------------------------------------------------------------------------
 
 class SupporterSignature(dspy.Signature):
-    """You are a chatbot summarizing what supporters say in YouTube comments about the topic.
-    Read the provided comments and write a short natural summary of the main sentiment.
+    """Summarize the provided YouTube comments as a supporter speaking in first person.
     RULES:
+    - Speak as 'I' or 'We', never refer to 'the user' or 'supporters'
     - Never copy or quote comments directly
     - Write 1-2 sentences only"""
     context = dspy.InputField(desc="YouTube comments from supporters")
     question = dspy.InputField(desc="the question")
-    response = dspy.OutputField(desc="1-2 sentences naturally summarizing supporter sentiment")
+    response = dspy.OutputField(desc="1-2 sentences in first person (I/We) expressing the supporter view")
 
 
 class CriticSignature(dspy.Signature):
-    """You are a chatbot summarizing what critics say in YouTube comments about the topic.
-    Read the provided comments and write a short natural summary of the main sentiment.
+    """Summarize the provided YouTube comments as a critic speaking in first person.
     RULES:
+    - Speak as 'I' or 'We', never refer to 'the user' or 'critics'
     - Never copy or quote comments directly
     - Write 1-2 sentences only"""
     context = dspy.InputField(desc="YouTube comments from critics")
     question = dspy.InputField(desc="the question")
-    response = dspy.OutputField(desc="1-2 sentences naturally summarizing critic sentiment")
+    response = dspy.OutputField(desc="1-2 sentences in first person (I/We) expressing the critic view")
 
 
 class SupporterChatbot(dspy.Module):

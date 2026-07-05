@@ -60,34 +60,23 @@ def _debate_turn(persona: str, topic: str, opponent_last: str, context: str) -> 
 # ---------------------------------------------------------------------------
 
 class JudgeSignature(dspy.Signature):
-    """You are an impartial judge evaluating two chatbot responses to the same question.
-    Assess factual grounding, clarity, and how well each response addresses the question.
-    Be objective and specific."""
+    """You are an impartial judge evaluating a chatbot response.
+    Assess factual grounding, clarity, and how well the response addresses the question."""
     question = dspy.InputField(desc="the user's question")
-    supporter_response = dspy.InputField(desc="response from the supporter chatbot")
-    critic_response = dspy.InputField(desc="response from the critic chatbot")
-    supporter_score = dspy.OutputField(desc="float 0-1: quality score for the supporter response")
-    critic_score = dspy.OutputField(desc="float 0-1: quality score for the critic response")
-    supporter_feedback = dspy.OutputField(desc="one sentence: what the supporter response did well or poorly")
-    critic_feedback = dspy.OutputField(desc="one sentence: what the critic response did well or poorly")
-    verdict = dspy.OutputField(desc="one sentence: which response was stronger and why, or if they were equal")
+    persona = dspy.InputField(desc="supporter or critic")
+    response = dspy.InputField(desc="the chatbot response to evaluate")
+    score = dspy.OutputField(desc="float 0-1: quality score for the response")
+    feedback = dspy.OutputField(desc="one sentence: what the response did well or poorly")
+    verdict = dspy.OutputField(desc="one sentence: overall assessment of the response quality")
 
-
-# ---------------------------------------------------------------------------
-# Modules
-# ---------------------------------------------------------------------------
 
 class Judge(dspy.Module):
     def __init__(self):
         super().__init__()
         self.evaluate = dspy.ChainOfThought(JudgeSignature)
 
-    def forward(self, question, supporter_response, critic_response):
-        return self.evaluate(
-            question=question,
-            supporter_response=supporter_response,
-            critic_response=critic_response,
-        )
+    def forward(self, question, persona, response):
+        return self.evaluate(question=question, persona=persona, response=response)
 
 
 _judge_module = Judge()
@@ -174,25 +163,9 @@ def run_debate(topic: str, rounds: int = 3) -> dict:
     return {"topic": topic, "rounds": results}
 
 
-def run_judge(question: str, supporter_response: str, critic_response: str) -> dict:
-    """
-    Judge a Q&A pair from the main chat.
-
-    Returns:
-        {
-            "supporter_score": float,
-            "critic_score": float,
-            "supporter_feedback": str,
-            "critic_feedback": str,
-            "verdict": str
-        }
-    """
+def run_judge(question: str, persona: str, response: str) -> dict:
     with dspy.context(lm=lm):
-        result = _judge_module(
-            question=question,
-            supporter_response=supporter_response,
-            critic_response=critic_response,
-        )
+        result = _judge_module(question=question, persona=persona, response=response)
 
     def _parse_score(v):
         try:
@@ -201,9 +174,7 @@ def run_judge(question: str, supporter_response: str, critic_response: str) -> d
             return 0.0
 
     return {
-        "supporter_score": _parse_score(result.supporter_score),
-        "critic_score": _parse_score(result.critic_score),
-        "supporter_feedback": result.supporter_feedback,
-        "critic_feedback": result.critic_feedback,
+        "score": _parse_score(result.score),
+        "feedback": result.feedback,
         "verdict": result.verdict,
     }

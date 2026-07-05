@@ -75,7 +75,7 @@ class CriticChatbot(dspy.Module):
 # Returns response, similarity, and source comment_ids for citation.
 # ---------------------------------------------------------------------------
 
-SIMILARITY_THRESHOLD = 0.6
+SIMILARITY_THRESHOLD = 0.3
 
 def run_chatbot(chatbot, collection, question, k=10, top_k=5):
     """
